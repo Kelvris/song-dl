@@ -15,7 +15,41 @@ SONGDL_VERSION="0.2.1"
 LOGFILE=$(mktemp /tmp/songdl_install.XXXXXX) 2>/dev/null || LOGFILE="/tmp/songdl_install.log"
 
 # Detect project root (where this install script lives)
-PROJECT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# Supports both local install (./install.sh) and curl-piped install (curl ... | bash)
+PROJECT_DIR=""
+_guess_project_dir() {
+    # Try local directory first (./install.sh from repo)
+    local self
+    self="$(readlink -f "$0" 2>/dev/null)" || self=""
+    if [[ -n "$self" && -f "$(dirname "$self")/main.py" ]]; then
+        PROJECT_DIR="$(cd "$(dirname "$self")" && pwd)"
+        return 0
+    fi
+    # Fallback: check if we're already in the project dir
+    if [[ -f "$PWD/main.py" && -d "$PWD/songdl" ]]; then
+        PROJECT_DIR="$PWD"
+        return 0
+    fi
+    # Last resort: download from GitHub
+    local tarball_url="https://github.com/Kelvris/song-dl/archive/refs/tags/v${SONGDL_VERSION}.tar.gz"
+    local extract_dir="$SONGDL_DATA_DIR/src"
+    mkdir -p "$extract_dir"
+    info "Downloading song-dl v${SONGDL_VERSION} from GitHub..."
+    if command -v curl &>/dev/null; then
+        curl -fsSL "$tarball_url" | tar -xz -C "$extract_dir" --strip-components=1 2>/dev/null
+    elif command -v wget &>/dev/null; then
+        wget -qO- "$tarball_url" | tar -xz -C "$extract_dir" --strip-components=1 2>/dev/null
+    else
+        die "Neither curl nor wget found. Please install curl or wget."
+    fi
+    if [[ -f "$extract_dir/main.py" ]]; then
+        PROJECT_DIR="$extract_dir"
+        _FILES_COPIED=true  # already in the data dir, no need to copy later
+        return 0
+    fi
+    die "Failed to download song-dl source. Please check your internet connection."
+}
+_guess_project_dir
 
 # XDG-compliant installation paths
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -663,11 +697,14 @@ install_python_deps() {
     ok "pip upgraded."
 
     # Copy project source files into the data dir (so user can delete original source)
-    info "Copying project files to $SONGDL_DATA_DIR ..."
-    cp "$PROJECT_DIR/main.py" "$SONGDL_DATA_DIR/"
-    cp -r "$PROJECT_DIR/songdl" "$SONGDL_DATA_DIR/"
-    _FILES_COPIED=true
-    ok "Project files copied."
+    # Skip if already downloaded directly to the data dir (curl | bash mode)
+    if ! $_FILES_COPIED; then
+        info "Copying project files to $SONGDL_DATA_DIR ..."
+        cp "$PROJECT_DIR/main.py" "$SONGDL_DATA_DIR/"
+        cp -r "$PROJECT_DIR/songdl" "$SONGDL_DATA_DIR/"
+        _FILES_COPIED=true
+        ok "Project files copied."
+    fi
 
     # Install requirements with spinner
     subheader "Installing Python packages (yt-dlp, mutagen)"
