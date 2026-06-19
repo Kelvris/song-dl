@@ -6,7 +6,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 
-UA = 'song-dl/0.2.0 (Python)'
+UA = 'song-dl/0.2.1 (Python)'
 ITUNES_URL = 'https://itunes.apple.com/search'
 MUSICBRAINZ_URL = 'https://musicbrainz.org/ws/2/recording'
 LRCLIB_URL = 'https://lrclib.net/api'

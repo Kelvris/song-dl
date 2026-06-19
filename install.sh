@@ -9,7 +9,7 @@ set -euo pipefail
 # =============================================================================
 #  CONSTANTS
 # =============================================================================
-SONGDL_VERSION="0.2.0"
+SONGDL_VERSION="0.2.1"
 
 # Log file for install operations
 LOGFILE=$(mktemp /tmp/songdl_install.XXXXXX) 2>/dev/null || LOGFILE="/tmp/songdl_install.log"
