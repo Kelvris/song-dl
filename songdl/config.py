@@ -13,6 +13,7 @@ DEFAULTS = {
     'no_cover': False,
     'no_metadata': False,
     'output_pattern': '{artist} - {title}',
+    'sources': ['ytsearch', 'scsearch'],
 }
 
 

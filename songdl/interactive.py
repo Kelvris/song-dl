@@ -155,7 +155,10 @@ def _menu(items, title=None, multi=False):
     number_buf = ''
 
     def _height():
-        return (4 if title else 0) + len(items) + 1
+        h = (4 if title else 0) + len(items) + 1
+        if not number_buf:
+            h += 2  # footer: separator + hint
+        return h
 
     def _draw():
         if title:
@@ -172,6 +175,10 @@ def _menu(items, title=None, multi=False):
                 print(f" {pre} {C['h']}{t}{C['r']}")
         if number_buf:
             print(f"  {C['d']}Go to: {number_buf}{C['r']}")
+        else:
+            print(f"  {C['d']}{'─' * (W + 2)}{C['r']}")
+            hint = "  ↑↓ Navigate  •  Enter Select  •  Space Toggle  •  Q Quit" if multi else "  ↑↓ Navigate  •  Enter Select  •  Q Quit"
+            print(f"  {C['d']}{hint}{C['r']}")
         print()
 
     _draw()
@@ -400,15 +407,10 @@ def _q_remove():
 # ─── Actions ──────────────────────────────────────────────────────
 
 def _act_search():
-    src_items = [(str(i), n) for i, (n, _) in enumerate(SOURCES)]
-    src_items.append(("all", f"{C['ok']}All sources{C['r']}"))
-    picked_src = _menu(src_items, title="Search sources", multi=True)
-    if not picked_src:
+    sources = CFG.sources
+    if not sources:
+        _pr('w', "No sources enabled. Enable them in Settings.")
         return
-    if "all" in picked_src:
-        sources = list(range(len(SOURCES)))
-    else:
-        sources = [int(s) for s in picked_src if s != "all"]
 
     query = _ask("Enter search")
     if not query:
@@ -416,8 +418,8 @@ def _act_search():
 
     _pr('h', f"Searching {len(sources)} source(s)...")
     results = []
-    for idx in sources:
-        name, prefix = SOURCES[idx]
+    for prefix in sources:
+        name = next((n for n, p in SOURCES if p == prefix), prefix)
         try:
             info = dl.search_source(prefix, query)
             for e in info.get("entries", []):
@@ -482,6 +484,12 @@ def _act_queue():
             _pr('w', "Queue is empty.")
             return
 
+        # Show queue items
+        print()
+        for i, entry in enumerate(QUEUE, 1):
+            print(f"  {C['h']}{i:2d}.{C['r']}  {C['b']}{entry['title'][:55]}{C['r']}")
+        print()
+
         ch = _menu([
             ("p", f"{C['ok']}Process all{C['r']}  {C['d']}(download){C['r']}"),
             ("r", f"{C['w']}Remove items{C['r']}"),
@@ -508,12 +516,33 @@ def _act_history():
 
 def _act_settings():
     _title("Settings (Enter = keep current)")
+
+    # ── Audio Format ──
+    _pr('d', f"  ── Audio Format {'─' * (W - 16)}")
     f = _ask("Format (mp3/m4a/flac/opus)", CFG.format)
     if f: CFG.format = f
     q = _ask("Quality (0=best or 192k)", CFG.quality)
     if q: CFG.quality = q
+
+    # ── Paths ──
+    _pr('d', f"  ── Paths {'─' * (W - 8)}")
     o = _ask("Output directory", CFG.output_dir)
     if o: CFG.output_dir = o
+
+    # ── Search Sources ──
+    _pr('d', f"  ── Search Sources {'─' * (W - 18)}")
+    _pr('d', "Space to toggle, Enter to confirm")
+    src_items = []
+    for name, prefix in SOURCES:
+        enabled = prefix in CFG.sources
+        label = f"{'✓' if enabled else ' '}  {name}"
+        src_items.append((prefix, label))
+    toggled = _menu(src_items, multi=True)
+    if toggled is not None:
+        CFG.sources = toggled
+
+    # ── Metadata ──
+    _pr('d', f"  ── Metadata {'─' * (W - 11)}")
     s = _ask("Skip existing? (y/n)", "y" if CFG.skip_existing else "n")
     if s and s.lower() in ("y", "yes"):
         CFG.skip_existing = True
@@ -529,10 +558,14 @@ def _act_settings():
         CFG.no_metadata = True
     elif nm and nm.lower() in ("n", "no"):
         CFG.no_metadata = False
+
+    # ── File Naming ──
+    _pr('d', f"  ── File Naming {'─' * (W - 15)}")
     _pr('h', "Output pattern — use {artist}, {album}, {title}, {track}")
     _pr('d', "  Examples: {artist} - {title}  or  {artist}/{album}/{title}")
     op = _ask("Output pattern", CFG.output_pattern)
     if op: CFG.output_pattern = op
+
     pconf.save(CFG)
     _pr('ok', "Settings saved.")
 
@@ -568,13 +601,13 @@ def run():
 
                 qs = f"Queue ({len(QUEUE)})" if QUEUE else "Queue (empty)"
                 ch = _menu([
-                    ("1", f"Search & Download  {C['d']}(pick sources){C['r']}"),
-                    ("2", f"Download URL       {C['d']}(video / playlist){C['r']}"),
-                    ("3", f"Batch download     {C['d']}(from file){C['r']}"),
+                    ("1", f"Search & Download   {C['d']}(YouTube, SoundCloud){C['r']}"),
+                    ("2", f"Download URL        {C['d']}(video or playlist link){C['r']}"),
+                    ("3", f"Batch download      {C['d']}(from a text file){C['r']}"),
                     ("4", qs),
-                    ("5", "Download history"),
-                    ("6", "Settings"),
-                    ("7", "Exit"),
+                    ("5", f"Download history    {C['d']}(browse past downloads){C['r']}"),
+                    ("6", f"Settings            {C['d']}(format, sources, patterns){C['r']}"),
+                    ("7", f"Exit                {C['d']}(quit song-dl){C['r']}"),
                 ], title="Menu")
 
                 if ch is None or ch == "7":
