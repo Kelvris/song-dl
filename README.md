@@ -78,7 +78,7 @@ song-dl --batch playlist.txt
 
 ```
 ╔════════════════════════════════════════╗
-║        song-dl  v0.1.0                ║
+║        song-dl  v0.2.0                ║
 ║   Download songs + rich metadata       ║
 ╚════════════════════════════════════════╝
 
