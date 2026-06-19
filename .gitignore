@@ -1,0 +1,31 @@
+# ─── Python ───────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+*.so
+*.whl
+
+# ─── Virtual environment ─────────────────────────
+.venv/
+venv/
+env/
+
+# ─── IDE / Editors ───────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ─── OS ──────────────────────────────────────────
+Thumbs.db
+.DS_Store*
+
+# ─── Project-specific ────────────────────────────
+.opencode/
+*.log
+/tmp/
