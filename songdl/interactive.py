@@ -109,12 +109,13 @@ def _getch():
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
-def _menu(items, title=None, multi=False):
+def _menu(items, title=None, multi=False, initial=None):
     """Arrow-key navigable menu.
 
     items: list of (return_value, display_text) tuples
     title: optional header
     multi: allow Space-toggle multi-select
+    initial: set of pre-toggled indices (for multi)
 
     Returns selected value (single) or list of values (multi), or None.
     """
@@ -151,7 +152,7 @@ def _menu(items, title=None, multi=False):
         return None if not multi else None
 
     selected = 0
-    toggled = set()
+    toggled = set(initial) if initial else set()
     number_buf = ''
 
     def _height():
@@ -530,14 +531,15 @@ def _act_settings():
     if o: CFG.output_dir = o
 
     # ── Search Sources ──
-    _pr('d', f"  ── Search Sources {'─' * (W - 18)}")
-    _pr('d', "Space to toggle, Enter to confirm")
+    _title("Search Sources (Space to toggle)")
     src_items = []
-    for name, prefix in SOURCES:
-        enabled = prefix in CFG.sources
-        label = f"{'✓' if enabled else ' '}  {name}"
-        src_items.append((prefix, label))
-    toggled = _menu(src_items, multi=True)
+    initial_toggle = set()
+    for i, (name, prefix) in enumerate(SOURCES):
+        if prefix in CFG.sources:
+            initial_toggle.add(i)
+        src_items.append((prefix, name))
+
+    toggled = _menu(src_items, multi=True, initial=initial_toggle)
     if toggled is not None:
         CFG.sources = toggled
 
