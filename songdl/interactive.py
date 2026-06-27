@@ -568,6 +568,23 @@ def _act_settings():
     op = _ask("Output pattern", CFG.output_pattern)
     if op: CFG.output_pattern = op
 
+    # ── Updates ──────────────────────────────────────
+    _title("Updates")
+    r = _yn("Check for updates?", True)
+    if r is None:
+        return
+    if r:
+        latest, has_update, error = c.check_for_update()
+        if error:
+            _pr('e', f"Could not check: {error}")
+        elif has_update:
+            _pr('ok', f"v{latest} available!")
+            r = _yn(f"Update to v{latest}?", True)
+            if r:
+                c.run_update()
+        else:
+            _pr('ok', "You're on the latest version.")
+
     pconf.save(CFG)
     _pr('ok', "Settings saved.")
 
