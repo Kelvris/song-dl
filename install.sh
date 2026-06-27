@@ -1021,9 +1021,9 @@ main() {
         if [[ "${REPLY:0:1}" =~ [Yy] ]]; then
             info "Installing Deno ..."
             if command -v curl &>/dev/null; then
-                curl -fsSL https://deno.land/install.sh | sh
+                curl -fsSL https://deno.land/install.sh | sh || warn "Deno installation script failed."
             elif command -v wget &>/dev/null; then
-                wget -qO- https://deno.land/install.sh | sh
+                wget -qO- https://deno.land/install.sh | sh || warn "Deno installation script failed."
             else
                 warn "Neither curl nor wget found. Cannot install Deno automatically."
             fi
