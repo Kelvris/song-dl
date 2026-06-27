@@ -5,7 +5,7 @@ import yt_dlp
 def get_video_info(url):
     with yt_dlp.YoutubeDL({
         'quiet': True, 'no_warnings': True,
-        'js_runtimes': ['deno', 'node'],
+        'js_runtimes': {'deno': {}, 'node': {}},
         'extractor_args': {'youtube': {'player_client': ['web', 'android']}},
     }) as ydl:
         return ydl.extract_info(url, download=False)
@@ -17,7 +17,7 @@ def get_playlist_info(url, timeout=10):
         'quiet': True, 'no_warnings': True,
         'extract_flat': 'in_playlist',
         'socket_timeout': timeout,
-        'js_runtimes': ['deno', 'node'],
+        'js_runtimes': {'deno': {}, 'node': {}},
         'extractor_args': {'youtube': {'player_client': ['web', 'android']}},
     }) as ydl:
         return ydl.extract_info(url, download=False)
@@ -26,7 +26,7 @@ def get_playlist_info(url, timeout=10):
 def search_source(prefix, query, max_results=5):
     with yt_dlp.YoutubeDL({
         'quiet': True, 'no_warnings': True,
-        'js_runtimes': ['deno', 'node'],
+        'js_runtimes': {'deno': {}, 'node': {}},
         'extractor_args': {'youtube': {'player_client': ['web', 'android']}},
     }) as ydl:
         return ydl.extract_info(f"{prefix}{max_results}:{query}", download=False)
@@ -46,7 +46,11 @@ def cleanup_temps(output_dir, video_id):
 
 
 def download_audio(url, output_dir, format='mp3', quality='0'):
-    with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True}) as ydl:
+    with yt_dlp.YoutubeDL({
+        'quiet': True, 'no_warnings': True,
+        'js_runtimes': {'deno': {}, 'node': {}},
+        'extractor_args': {'youtube': {'player_client': ['web', 'android']}},
+    }) as ydl:
         info = ydl.extract_info(url, download=False)
     video_id = info.get('id', '')
 
@@ -60,7 +64,7 @@ def download_audio(url, output_dir, format='mp3', quality='0'):
         }],
         'quiet': True,
         'no_warnings': True,
-        'js_runtimes': ['deno', 'node'],
+        'js_runtimes': {'deno': {}, 'node': {}},
         'extractor_args': {'youtube': {'player_client': ['web', 'android']}},
     }
 
