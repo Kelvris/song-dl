@@ -260,3 +260,45 @@ def process_item(url, args, batch=False):
         )
 
     _ok(f"Saved: {os.path.basename(final_path)}  ({_format_size(size)}, {elapsed:.1f}s)")
+
+
+def check_for_update():
+    """Check GitHub for a newer version. Returns (latest_version, has_update, error)."""
+    import urllib.request
+    
+    from . import __version__
+
+    try:
+        url = "https://raw.githubusercontent.com/Kelvris/song-dl/main/install.sh"
+        req = urllib.request.Request(url, headers={'User-Agent': 'song-dl/update-check'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            content = resp.read().decode('utf-8')
+
+        match = re.search(r'SONGDL_VERSION="(\d+\.\d+\.\d+)"', content)
+        if not match:
+            return (None, False, "Could not parse version from GitHub")
+
+        latest = match.group(1)
+        current = __version__
+
+        def _ver_tuple(v):
+            return tuple(int(x) for x in v.split('.'))
+
+        has_update = _ver_tuple(latest) > _ver_tuple(current)
+        return (latest, has_update, None)
+    except Exception as e:
+        return (None, False, str(e))
+
+
+def run_update():
+    """Download and run the latest install script."""
+    _info("Downloading and installing update...")
+    ret = os.system(
+        "curl -fsSL https://raw.githubusercontent.com/Kelvris/song-dl/main/install.sh | bash"
+    )
+    if ret == 0:
+        _ok("Update complete! Please restart song-dl.")
+        return True
+    else:
+        _err("Update failed. Check your internet connection and try again.")
+        return False
