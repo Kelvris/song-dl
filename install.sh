@@ -392,6 +392,7 @@ check_deps() {
         "pip:pip (python3-pip)"
         "venv:python3-venv"
         "ffmpeg:ffmpeg"
+        "jsruntime:JS Runtime (Deno/Node)"
     )
 
     local -a dep_status=()        # "ok" | "missing"
@@ -399,6 +400,7 @@ check_deps() {
 
     declare -g PYTHON_CMD=""
     declare -g PIP_CMD=""
+    declare -g _JS_RUNTIME=""
 
     for entry in "${dep_names[@]}"; do
         local key="${entry%%:*}"
@@ -473,6 +475,25 @@ check_deps() {
                 else
                     dep_status+=("missing")
                     dep_version+=("NOT FOUND")
+                fi
+                ;;
+            jsruntime)
+                if command -v deno &>/dev/null; then
+                    local deno_ver
+                    deno_ver="$(deno --version 2>/dev/null | head -1 | awk '{print $2}')" || deno_ver=""
+                    dep_status+=("ok")
+                    dep_version+=("deno ${deno_ver:-available}")
+                    _JS_RUNTIME="deno"
+                elif command -v node &>/dev/null; then
+                    local node_ver
+                    node_ver="$(node --version 2>/dev/null)" || node_ver=""
+                    dep_status+=("ok")
+                    dep_version+=("node ${node_ver:-available}")
+                    _JS_RUNTIME="node"
+                else
+                    dep_status+=("missing")
+                    dep_version+=("NOT FOUND")
+                    _JS_RUNTIME=""
                 fi
                 ;;
         esac
@@ -982,6 +1003,42 @@ main() {
             error "Python $py_ver is too old. Python $PYTHON_REQUIRED_MAJOR.$PYTHON_REQUIRED_MINOR+ is required."
             die "Please install a newer version of Python 3."
         fi
+    fi
+
+    # ----- JS Runtime (Deno/Node) --------------------------------------------
+    if [[ "$_JS_RUNTIME" == "deno" ]]; then
+        ok "Deno found. yt-dlp will use it for YouTube extraction."
+    elif [[ "$_JS_RUNTIME" == "node" ]]; then
+        info "Node.js found. yt-dlp will use it for YouTube extraction."
+    else
+        printf "\n"
+        warn "No JavaScript runtime found (Deno or Node.js)."
+        warn "yt-dlp requires a JS runtime for YouTube extraction, otherwise"
+        warn "it may fall back to the Android API which YouTube blocks (403 error)."
+        printf "\n"
+        read -r -p "  Install Deno? (lightweight, ~40 MB, recommended) [Y/n] > " REPLY
+        REPLY="${REPLY:-Y}"
+        if [[ "${REPLY:0:1}" =~ [Yy] ]]; then
+            info "Installing Deno ..."
+            if command -v curl &>/dev/null; then
+                curl -fsSL https://deno.land/install.sh | sh
+            elif command -v wget &>/dev/null; then
+                wget -qO- https://deno.land/install.sh | sh
+            else
+                warn "Neither curl nor wget found. Cannot install Deno automatically."
+            fi
+            # Re-check if Deno is now available
+            if command -v deno &>/dev/null; then
+                ok "Deno installed successfully."
+                _JS_RUNTIME="deno"
+            else
+                warn "Deno may have been installed but is not in your PATH."
+                warn "If installed, add ~/.deno/bin to your PATH or log out and back in."
+            fi
+        else
+            info "Skipping Deno installation. yt-dlp may get 403 errors on YouTube."
+        fi
+        printf "\n"
     fi
 
     # ----- Confirmation ------------------------------------------------------
