@@ -269,12 +269,12 @@ def check_for_update():
     from . import __version__
 
     try:
-        url = "https://raw.githubusercontent.com/Kelvris/song-dl/main/install.sh"
+        url = "https://raw.githubusercontent.com/Kelvris/song-dl/main/songdl/__init__.py"
         req = urllib.request.Request(url, headers={'User-Agent': 'song-dl/update-check'})
         with urllib.request.urlopen(req, timeout=10) as resp:
             content = resp.read().decode('utf-8')
 
-        match = re.search(r'SONGDL_VERSION="(\d+\.\d+\.\d+)"', content)
+        match = re.search(r'__version__\s*=\s*"(\d+\.\d+\.\d+)"', content)
         if not match:
             return (None, False, "Could not parse version from GitHub")
 
