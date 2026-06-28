@@ -9,13 +9,43 @@ set -euo pipefail
 # =============================================================================
 #  CONSTANTS
 # =============================================================================
-SONGDL_VERSION="0.2.2"
+SONGDL_VERSION="0.3.1"
 
 # Log file for install operations
 LOGFILE=$(mktemp /tmp/songdl_install.XXXXXX) 2>/dev/null || LOGFILE="/tmp/songdl_install.log"
 
 # Detect project root (where this install script lives)
 # Supports both local install (./install.sh) and curl-piped install (curl ... | bash)
+
+# =============================================================================
+#  COLOR / OUTPUT HELPERS  (tput with fallback)
+# =============================================================================
+if [[ -t 1 ]] && command -v tput &>/dev/null; then
+    _BOLD=$(tput bold)
+    _DIM=$(tput dim)
+    _UNDERLINE=$(tput smul)
+    _RESET=$(tput sgr0)
+
+    # Foreground colors
+    _RED=$(tput setaf 1)
+    _GREEN=$(tput setaf 2)
+    _YELLOW=$(tput setaf 3)
+    _BLUE=$(tput setaf 4)
+    _MAGENTA=$(tput setaf 5)
+    _CYAN=$(tput setaf 6)
+    _WHITE=$(tput setaf 7)
+else
+    _BOLD='' _DIM='' _UNDERLINE='' _RESET=''
+    _RED='' _GREEN='' _YELLOW='' _BLUE='' _MAGENTA='' _CYAN='' _WHITE=''
+fi
+
+# ----- Print helpers ---------------------------------------------------------
+info()  { printf "  %s•%s %s%s\n" "$_BLUE" "$_RESET" "$*" "$_RESET"; }
+ok()    { printf "  %s✓%s %s%s\n" "$_GREEN" "$_RESET" "$*" "$_RESET"; }
+warn()  { printf "  %s⚠ %s%s%s\n" "$_YELLOW" "$_RESET" "$*" "$_RESET"; }
+error() { printf "  %s✗ %s%s%s\n" "$_RED" "$_RESET" "$*" "$_RESET" >&2; }
+die()   { error "$*"; exit 1; }
+
 PROJECT_DIR=""
 _guess_project_dir() {
     # Try local directory first (./install.sh from repo)
@@ -49,7 +79,6 @@ _guess_project_dir() {
     fi
     die "Failed to download song-dl source. Please check your internet connection."
 }
-_guess_project_dir
 
 # XDG-compliant installation paths
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -60,6 +89,8 @@ SONGDL_DATA_DIR="$XDG_DATA_HOME/song-dl"
 VENV_DIR="$SONGDL_DATA_DIR/venv"
 LAUNCHER_PATH="$XDG_BIN_HOME/song-dl"
 
+_guess_project_dir
+
 # Minimum Python version required
 PYTHON_REQUIRED_MAJOR=3
 PYTHON_REQUIRED_MINOR=8
@@ -69,35 +100,6 @@ _INSTALL_STARTED=false
 _VENV_CREATED=false
 _FILES_COPIED=false
 _LAUNCHER_CREATED=false
-
-# =============================================================================
-#  COLOR / OUTPUT HELPERS  (tput with fallback)
-# =============================================================================
-if [[ -t 1 ]] && command -v tput &>/dev/null; then
-    _BOLD=$(tput bold)
-    _DIM=$(tput dim)
-    _UNDERLINE=$(tput smul)
-    _RESET=$(tput sgr0)
-
-    # Foreground colors
-    _RED=$(tput setaf 1)
-    _GREEN=$(tput setaf 2)
-    _YELLOW=$(tput setaf 3)
-    _BLUE=$(tput setaf 4)
-    _MAGENTA=$(tput setaf 5)
-    _CYAN=$(tput setaf 6)
-    _WHITE=$(tput setaf 7)
-else
-    _BOLD='' _DIM='' _UNDERLINE='' _RESET=''
-    _RED='' _GREEN='' _YELLOW='' _BLUE='' _MAGENTA='' _CYAN='' _WHITE=''
-fi
-
-# ----- Print helpers ---------------------------------------------------------
-info()  { printf "  %s•%s %s%s\n" "$_BLUE" "$_RESET" "$*" "$_RESET"; }
-ok()    { printf "  %s✓%s %s%s\n" "$_GREEN" "$_RESET" "$*" "$_RESET"; }
-warn()  { printf "  %s⚠ %s%s%s\n" "$_YELLOW" "$_RESET" "$*" "$_RESET"; }
-error() { printf "  %s✗ %s%s%s\n" "$_RED" "$_RESET" "$*" "$_RESET" >&2; }
-die()   { error "$*"; exit 1; }
 
 # ----- Section header --------------------------------------------------------
 section() {
