@@ -36,7 +36,11 @@ def _err(msg):
 def _clean_ansi(text):
     """Strip ANSI escape codes (like \\x1b[b) from exception messages."""
     import re as _re
-    return _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+    # Strip real ANSI escape codes (ESC byte 0x1b)
+    text = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+    # Strip literal \x1b... text (backslash + x + hex + params + letter)
+    text = _re.sub(r'\\x1b\[[0-9;]*[a-zA-Z]', '', text)
+    return text
 
 
 _URL_RE = re.compile(
@@ -207,9 +211,14 @@ def process_item(url, args, batch=False):
             url, args.output_dir, args.format, args.quality
         )
     except Exception as e:
-        msg = _clean_ansi(str(e) or type(e).__name__)
+        raw = str(e)
+        msg = _clean_ansi(raw) or type(e).__name__
+        if not msg:
+            msg = "yt-dlp error (possibly network or age-restriction)"
         _err(f"Download failed: {msg}")
-        _warn("The download may have been interrupted. Check your connection.")
+        if raw and not _clean_ansi(raw):
+            _warn(f"Raw error: {raw!r}")
+        _warn("Check your connection or try again later.")
         return
 
     if not os.path.exists(temp_file):
