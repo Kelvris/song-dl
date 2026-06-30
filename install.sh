@@ -9,7 +9,7 @@ set -euo pipefail
 # =============================================================================
 #  CONSTANTS
 # =============================================================================
-SONGDL_VERSION="0.3.1"
+SONGDL_VERSION="0.3.4"
 
 # Log file for install operations
 LOGFILE=$(mktemp /tmp/songdl_install.XXXXXX) 2>/dev/null || LOGFILE="/tmp/songdl_install.log"
@@ -61,10 +61,10 @@ _guess_project_dir() {
         return 0
     fi
     # Last resort: download from GitHub
-    local tarball_url="https://github.com/Kelvris/song-dl/archive/refs/tags/v${SONGDL_VERSION}.tar.gz"
+    local tarball_url="https://github.com/Kelvris/song-dl/archive/refs/heads/main.tar.gz"
     local extract_dir="$SONGDL_DATA_DIR/src"
     mkdir -p "$extract_dir"
-    info "Downloading song-dl v${SONGDL_VERSION} from GitHub..."
+    info "Downloading song-dl (latest) from GitHub..."
     if command -v curl &>/dev/null; then
         curl -fsSL "$tarball_url" | tar -xz -C "$extract_dir" --strip-components=1 2>/dev/null
     elif command -v wget &>/dev/null; then
