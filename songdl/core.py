@@ -299,14 +299,82 @@ def check_for_update():
 
 
 def run_update():
-    """Download and run the latest install script."""
-    _info("Downloading and installing update...")
-    ret = os.system(
-        "curl -fsSL https://raw.githubusercontent.com/Kelvris/song-dl/main/install.sh | bash"
-    )
-    if ret == 0:
-        _ok("Update complete! Please restart song-dl.")
-        return True
-    else:
-        _err("Update failed. Check your internet connection and try again.")
+    """Download latest source files and replace in-place (no full reinstall)."""
+    import tempfile
+    import shutil
+    import urllib.request
+    import tarfile
+
+    latest, has_update, error = check_for_update()
+    if error:
+        _err(f"Could not check for updates: {error}")
         return False
+    if not has_update:
+        _ok(f"You're already on the latest version (v{latest}).")
+        return True
+
+    SONGDL_DATA_DIR = os.path.join(
+        os.path.expanduser("~"), ".local", "share", "song-dl"
+    )
+    if not os.path.isdir(SONGDL_DATA_DIR):
+        _err(f"Installation not found at {SONGDL_DATA_DIR}.")
+        _err("Run the full installer first: `bash <(curl -fsSL ...)`")
+        return False
+
+    tarball_url = (
+        f"https://github.com/Kelvris/song-dl/archive/refs/tags/v{latest}.tar.gz"
+    )
+
+    _info(f"Downloading v{latest} ...")
+
+    tmp_path = None
+    extract_dir = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp:
+            tmp_path = tmp.name
+            req = urllib.request.Request(
+                tarball_url, headers={'User-Agent': 'song-dl/update'}
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                tmp.write(resp.read())
+
+        extract_dir = tempfile.mkdtemp()
+        with tarfile.open(tmp_path, 'r:gz') as tar:
+            tar.extractall(extract_dir)
+        os.unlink(tmp_path)
+        tmp_path = None  # cleaned up
+
+        src = os.path.join(extract_dir, f"song-dl-{latest}")
+
+        _info("Replacing source files ...")
+
+        # Atomic-ish swap: copy to .new/ first, then replace
+        dst_songdl = os.path.join(SONGDL_DATA_DIR, "songdl")
+        dst_tmp = dst_songdl + ".new"
+        if os.path.isdir(dst_tmp):
+            shutil.rmtree(dst_tmp)
+        shutil.copytree(os.path.join(src, "songdl"), dst_tmp)
+        shutil.copy2(os.path.join(src, "main.py"), SONGDL_DATA_DIR)
+        shutil.copy2(os.path.join(src, "requirements.txt"), SONGDL_DATA_DIR)
+        if os.path.isdir(dst_songdl):
+            shutil.rmtree(dst_songdl)
+        os.rename(dst_tmp, dst_songdl)
+
+        _ok(f"Updated to v{latest}! Restart song-dl to use it.")
+        return True
+
+    except Exception as e:
+        _err(f"Update failed: {_clean_ansi(str(e) or type(e).__name__)}")
+        return False
+
+    finally:
+        for p in (tmp_path, extract_dir):
+            if p is None:
+                continue
+            if os.path.isdir(p):
+                shutil.rmtree(p, ignore_errors=True)
+            elif os.path.isfile(p):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
