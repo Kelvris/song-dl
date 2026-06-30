@@ -33,6 +33,12 @@ def _err(msg):
     print(f"{RED}!!{RESET} {msg}")
 
 
+def _clean_ansi(text):
+    """Strip ANSI escape codes (like \\x1b[b) from exception messages."""
+    import re as _re
+    return _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+
+
 _URL_RE = re.compile(
     r'^(https?://)?([\w-]+\.)+[\w-]+(:\d+)?(/[\w\-./?%&=@+#]*)?$'
 )
@@ -201,7 +207,9 @@ def process_item(url, args, batch=False):
             url, args.output_dir, args.format, args.quality
         )
     except Exception as e:
-        _err(f"Download failed: {e}")
+        msg = _clean_ansi(str(e) or type(e).__name__)
+        _err(f"Download failed: {msg}")
+        _warn("The download may have been interrupted. Check your connection.")
         return
 
     if not os.path.exists(temp_file):
