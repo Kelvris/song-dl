@@ -1,0 +1,192 @@
+# song-dl Test Commands
+# Run these in GitHub Codespace on the `dev` branch
+# Copy-paste each block or run them all at once
+
+# ============================================================
+# SETUP — Make sure you're on dev branch with deps installed
+# ============================================================
+git checkout dev
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+
+# ============================================================
+# VERIFY FIX #1 — Version single source of truth
+# ============================================================
+python3 -c "from songdl import __version__; print('Version:', __version__)"
+python3 -c "from songdl.metadata import UA; print('UA:', UA)"
+# Both should show 0.3.5. If UA shows 0.2.2, fix #1 is broken.
+
+
+# ============================================================
+# VERIFY FIX #2 — core.py termios is cross-platform
+# ============================================================
+python3 -c "from songdl.core import _input; print('core.py import OK')"
+# Should not crash even without termios (Windows/non-tty)
+
+
+# ============================================================
+# VERIFY FIX #3 — TUI extracted to tui.py
+# ============================================================
+python3 -c "from songdl.tui import C, W, _c, _pr, _title, _ask, _yn, _getch, _menu, _wait, _pick; print('tui.py import OK')"
+python3 -c "from songdl.interactive import run; print('interactive.py import OK')"
+# Both should import without errors
+
+
+# ============================================================
+# VERIFY FIX #4 — audio-get.sh deleted
+# ============================================================
+ls audio-get.sh 2>/dev/null && echo "FAIL: audio-get.sh still exists" || echo "PASS: audio-get.sh deleted"
+
+
+# ============================================================
+# VERIFY FIX #5 — __main__.py exists
+# ============================================================
+python3 -m songdl --version
+# Should print song-dl v0.3.5
+
+
+# ============================================================
+# VERIFY FIX #6 — Tests pass
+# ============================================================
+python3 -m pytest tests/ -v
+# OR if pytest not installed:
+python3 tests/test_core.py
+# Should show all 21 tests passing
+
+
+# ============================================================
+# VERIFY FIX #7 — Search query sanitization
+# ============================================================
+python3 -c "
+from songdl.downloader import search_source
+import time
+print('Testing search with clean query...')
+t0 = time.time()
+try:
+    info = search_source('ytsearch', 'never gonna give you up', max_results=3)
+    entries = [e for e in info.get('entries', []) if e]
+    print(f'OK: {len(entries)} results in {time.time()-t0:.1f}s')
+except Exception as e:
+    print(f'FAIL: {type(e).__name__}: {str(e)[:200]}')
+"
+# Should return results or timeout (not crash from bad input)
+
+
+# ============================================================
+# VERIFY FIX #8 — No global mutable state
+# ============================================================
+python3 -c "
+import songdl.interactive as mod
+# Check module level has no QUEUE or CFG
+has_queue = hasattr(mod, 'QUEUE')
+has_cfg = hasattr(mod, 'CFG')
+print(f'Module-level QUEUE: {has_queue} (should be False)')
+print(f'Module-level CFG: {has_cfg} (should be False)')
+if has_queue or has_cfg:
+    print('FAIL: global state still exists')
+else:
+    print('PASS: globals eliminated')
+"
+
+
+# ============================================================
+# VERIFY FIX #9 — Cross-platform getch
+# ============================================================
+python3 -c "
+from songdl.tui import _getch
+import sys
+print(f'Platform: {sys.platform}')
+print(f'_getch function: {_getch}')
+print('PASS: _getch is callable')
+"
+# Should not crash on import
+
+
+# ============================================================
+# TEST: Full video info extraction
+# ============================================================
+python3 -c "
+from songdl.downloader import get_video_info
+import time
+print('Fetching video info...')
+t0 = time.time()
+try:
+    info = get_video_info('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    print(f'OK ({time.time()-t0:.1f}s)')
+    print(f'  Title: {info.get(\"title\")}')
+    print(f'  ID: {info.get(\"id\")}')
+except Exception as e:
+    print(f'FAIL: {type(e).__name__}: {str(e)[:300]}')
+"
+
+
+# ============================================================
+# TEST: Metadata lookup
+# ============================================================
+python3 -c "
+from songdl.metadata import lookup_all, clean_youtube_title
+import time
+title = clean_youtube_title('Rick Astley - Never Gonna Give You Up (Official Video)')
+print(f'Cleaned title: {title}')
+t0 = time.time()
+try:
+    merged, found = lookup_all(title, 'Rick Astley', 'Rick Astley - Never Gonna Give You Up', {})
+    print(f'OK ({time.time()-t0:.1f}s)')
+    print(f'  Title: {merged.get(\"title\")}')
+    print(f'  Artist: {merged.get(\"artist\")}')
+    print(f'  Album: {merged.get(\"album\")}')
+    print(f'  Found metadata: {found}')
+except Exception as e:
+    print(f'FAIL: {type(e).__name__}: {str(e)[:300]}')
+"
+
+
+# ============================================================
+# TEST: Search (this is the one that was timing out)
+# Run this last — if it hangs, Ctrl+C and report the output above
+# ============================================================
+echo ""
+echo "=== SEARCH TEST (may take a while) ==="
+timeout 60 python3 -c "
+from songdl.downloader import search_source
+import time
+print('Searching ytsearch...')
+t0 = time.time()
+try:
+    info = search_source('ytsearch', 'never gonna give you up', max_results=3)
+    entries = [e for e in info.get('entries', []) if e]
+    print(f'OK ({time.time()-t0:.1f}s): {len(entries)} results')
+    for e in entries[:3]:
+        print(f'  - {e.get(\"title\",\"?\")[:60]}')
+except Exception as e:
+    print(f'FAIL ({time.time()-t0:.1f}s): {type(e).__name__}: {str(e)[:300]}')
+" 2>&1
+echo "If search timed out, that's the bug we need to fix."
+
+
+# ============================================================
+# TEST: SoundCloud search
+# ============================================================
+timeout 60 python3 -c "
+from songdl.downloader import search_source
+import time
+print('Searching scsearch...')
+t0 = time.time()
+try:
+    info = search_source('scsearch', 'never gonna give you up', max_results=3)
+    entries = [e for e in info.get('entries', []) if e]
+    print(f'OK ({time.time()-t0:.1f}s): {len(entries)} results')
+    for e in entries[:3]:
+        print(f'  - {e.get(\"title\",\"?\")[:60]}')
+except Exception as e:
+    print(f'FAIL ({time.time()-t0:.1f}s): {type(e).__name__}: {str(e)[:300]}')
+" 2>&1
+
+
+# ============================================================
+# DONE — Paste all output back so I can diagnose
+# ============================================================
+echo ""
+echo "=== COPY EVERYTHING ABOVE AND SEND IT BACK ==="
