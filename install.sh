@@ -9,7 +9,7 @@ set -euo pipefail
 # =============================================================================
 #  CONSTANTS
 # =============================================================================
-SONGDL_VERSION="0.3.4"
+# SONGDL_VERSION set below after _guess_project_dir
 
 # Log file for install operations
 LOGFILE=$(mktemp /tmp/songdl_install.XXXXXX) 2>/dev/null || LOGFILE="/tmp/songdl_install.log"
@@ -90,6 +90,10 @@ VENV_DIR="$SONGDL_DATA_DIR/venv"
 LAUNCHER_PATH="$XDG_BIN_HOME/song-dl"
 
 _guess_project_dir
+
+# Derive version from source (single source of truth in songdl/__init__.py)
+SONGDL_VERSION=$(sed -n 's/.*__version__ *= *"\([^"]*\)".*/\1/p' "$PROJECT_DIR/songdl/__init__.py" 2>/dev/null | head -1)
+SONGDL_VERSION="${SONGDL_VERSION:-0.3.5}"
 
 # Minimum Python version required
 PYTHON_REQUIRED_MAJOR=3
