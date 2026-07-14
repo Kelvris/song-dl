@@ -1,47 +1,30 @@
 import os
 import yt_dlp
 
+# ponytail: yt-dlp 2026+ auto-detects JS runtimes and optimal player clients.
+# Hardcoding extractor_args triggers YouTube bot detection. Keep it simple.
+_BASE_OPTS = {
+    "quiet": True,
+    "no_warnings": True,
+    "noprogress": True,
+}
+
 
 def get_video_info(url):
-    with yt_dlp.YoutubeDL(
-        {
-            "quiet": True,
-            "no_warnings": True,
-            "noprogress": True,
-            "js_runtimes": {"deno": {}, "node": {}},
-            "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
-        }
-    ) as ydl:
+    with yt_dlp.YoutubeDL(_BASE_OPTS) as ydl:
         return ydl.extract_info(url, download=False)
 
 
 def get_playlist_info(url, timeout=10):
     """Fast playlist extraction (flat format, with socket timeout)."""
-    with yt_dlp.YoutubeDL(
-        {
-            "quiet": True,
-            "no_warnings": True,
-            "noprogress": True,
-            "extract_flat": "in_playlist",
-            "socket_timeout": timeout,
-            "js_runtimes": {"deno": {}, "node": {}},
-            "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
-        }
-    ) as ydl:
+    opts = {**_BASE_OPTS, "extract_flat": "in_playlist", "socket_timeout": timeout}
+    with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.extract_info(url, download=False)
 
 
 def search_source(prefix, query, max_results=5):
     query = query.strip()[:200].replace("\x00", "")
-    with yt_dlp.YoutubeDL(
-        {
-            "quiet": True,
-            "no_warnings": True,
-            "noprogress": True,
-            "js_runtimes": {"deno": {}, "node": {}},
-            "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
-        }
-    ) as ydl:
+    with yt_dlp.YoutubeDL(_BASE_OPTS) as ydl:
         return ydl.extract_info(f"{prefix}{max_results}:{query}", download=False)
 
 
@@ -59,19 +42,12 @@ def cleanup_temps(output_dir, video_id):
 
 
 def download_audio(url, output_dir, format="mp3", quality="0"):
-    with yt_dlp.YoutubeDL(
-        {
-            "quiet": True,
-            "no_warnings": True,
-            "noprogress": True,
-            "js_runtimes": {"deno": {}, "node": {}},
-            "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
-        }
-    ) as ydl:
+    with yt_dlp.YoutubeDL(_BASE_OPTS) as ydl:
         info = ydl.extract_info(url, download=False)
     video_id = info.get("id", "")
 
     opts = {
+        **_BASE_OPTS,
         "format": "bestaudio/best",
         "outtmpl": os.path.join(output_dir, "%(id)s.%(ext)s"),
         "postprocessors": [
@@ -81,11 +57,6 @@ def download_audio(url, output_dir, format="mp3", quality="0"):
                 "preferredquality": quality,
             }
         ],
-        "quiet": True,
-        "no_warnings": True,
-        "noprogress": True,
-        "js_runtimes": {"deno": {}, "node": {}},
-        "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
     }
 
     try:
