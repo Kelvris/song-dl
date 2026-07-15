@@ -249,9 +249,7 @@ def process_item(url, args, batch=False):
         )
     except Exception as e:
         raw = str(e)
-        msg = _clean_ansi(raw) or type(e).__name__
-        if not msg:
-            msg = "yt-dlp error (possibly network or age-restriction)"
+        msg = _clean_ansi(raw) or type(e).__name__ or "Unknown yt-dlp error"
         _warn("Check your connection or try again later.")
         return msg
 

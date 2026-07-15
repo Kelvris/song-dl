@@ -183,13 +183,10 @@ def _menu(items, title=None, multi=False, initial=None):
     toggled = set(initial) if initial else set()
     number_buf = ""
 
-    def _height():
-        h = (4 if title else 0) + len(items) + 1
-        if not number_buf:
-            h += 2  # footer: separator + hint
-        return h
-
     def _draw():
+        # ponytail: clear screen + home cursor — reliable on all terminals
+        sys.stdout.write("\033[2J\033[H")
+        sys.stdout.flush()
         if title:
             print()
             _pr("h", f"{'─' * (W + 2)}")
@@ -215,7 +212,6 @@ def _menu(items, title=None, multi=False, initial=None):
         print()
 
     _draw()
-    n = _height()
 
     while True:
         try:
@@ -273,14 +269,12 @@ def _menu(items, title=None, multi=False, initial=None):
                 number_buf = number_buf[:-1]
             elif key in "0123456789":
                 number_buf += key
-                print(f"\033[{n}A\033[J", end="")
                 _draw()
                 continue
             else:
                 number_buf = ""
                 continue
 
-            print(f"\033[{n}A\033[J", end="")
             _draw()
         except KeyboardInterrupt:
             return None if not multi else None
