@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 import time
 from . import downloader as dl
 from .tui import C, _debug, _strip_ansi, _raw_input

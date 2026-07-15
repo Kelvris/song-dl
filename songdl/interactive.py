@@ -12,10 +12,8 @@ from .tui import (
     _c,
     _pr,
     _title,
-    _raw_input,
     _ask,
     _yn,
-    _getch,
     _menu,
     _wait,
     _pick,
@@ -106,7 +104,8 @@ def _q_process(cfg, queue):
         print()
     else:
         # Parallel for batch — 3 concurrent workers
-        import threading, concurrent.futures
+        import threading
+        import concurrent.futures
 
         print_lock = threading.Lock()
 
@@ -255,7 +254,7 @@ def _act_batch(queue):
         return
     try:
         with open(path) as f:
-            lines = [l.strip() for l in f if l.strip()]
+            lines = [line.strip() for line in f if line.strip()]
     except (OSError, PermissionError) as e:
         _pr("e", f"Cannot read file: {e}")
         return
@@ -368,7 +367,7 @@ def _act_settings(cfg):
         _set_debug(d)
         if d:
             _debug("Debug logging enabled")
-            _pr("ok", f"Log: ~/.config/song-dl/debug.log")
+            _pr("ok", "Log: ~/.config/song-dl/debug.log")
 
     # ── Updates ──────────────────────────────────────
     _title("Updates")

@@ -1,5 +1,4 @@
 import os
-import sys
 import threading
 import yt_dlp
 from .tui import _debug
