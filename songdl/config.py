@@ -33,6 +33,11 @@ def load():
     if not isinstance(cfg.max_results, int) or not (1 <= cfg.max_results <= 20):
         cfg.max_results = DEFAULTS["max_results"]
 
+    BOOL_FIELDS = ("skip_existing", "no_cover", "no_metadata", "debug")
+    for k in BOOL_FIELDS:
+        if not isinstance(getattr(cfg, k), bool):
+            setattr(cfg, k, DEFAULTS[k])
+
     return cfg
 
 
