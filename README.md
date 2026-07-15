@@ -104,7 +104,7 @@ All saved to `~/.config/song-dl/config.json`. You can edit it manually if you're
 ## 🐛 Known issues
 
 - Downloading too many songs at once may cause your inner hoarder to feel satisfied
-- Terminal may glitch if you resize it mid-menu (we're working on it — see issue #12)
+- Terminal may glitch if you resize it mid-menu (we're working on it)
 - The metadata isn't always perfect. iTunes and MusicBrainz don't agree on everything. Neither do my parents.
 - If you find a bug, congrats — you're now a contributor. Open an issue.
 
