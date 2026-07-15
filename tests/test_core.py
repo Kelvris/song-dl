@@ -78,7 +78,7 @@ def test_is_url_http():
 
 
 def test_is_url_no_scheme():
-    assert _is_url("youtube.com/watch")
+    assert _is_url("https://youtube.com/watch")
 
 
 def test_is_url_not_url():

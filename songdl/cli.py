@@ -32,8 +32,21 @@ def _check_ytdlp_update():
     if error or not latest:
         return
     try:
-        cur_tuple = tuple(int(x) for x in current.split("."))
-        lat_tuple = tuple(int(x) for x in latest.split("."))
+
+        def _ver_tuple(v):
+            parts = []
+            for x in v.split("."):
+                digit = ""
+                for ch in x:
+                    if ch.isdigit():
+                        digit += ch
+                    else:
+                        break
+                parts.append(int(digit) if digit else 0)
+            return tuple(parts)
+
+        cur_tuple = _ver_tuple(current)
+        lat_tuple = _ver_tuple(latest)
     except (ValueError, AttributeError):
         return
     if lat_tuple <= cur_tuple:
