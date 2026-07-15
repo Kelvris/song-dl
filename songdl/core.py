@@ -116,13 +116,16 @@ def _format_size(bytes_):
 def process_input(url, args, batch=False):
     try:
         process_item(url, args, batch)
+        return True
     except KeyboardInterrupt:
         _warn("Cancelled by user")
+        return False
     except Exception as e:
         _err(f"{url}: {e}")
         import traceback
 
         traceback.print_exc()
+        return False
 
 
 def process_item(url, args, batch=False):

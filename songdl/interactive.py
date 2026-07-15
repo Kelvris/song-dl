@@ -96,14 +96,16 @@ def _q_process(cfg, queue):
     items = list(queue)
     queue.clear()
 
+    succeeded = 0
+    failed = 0
+
     if total == 1:
         # Sequential for single item
         entry = items[0]
         print(f"  {C['h']}[1/1]{C['r']}  {entry['title'][:50]}")
-        try:
-            c.process_input(entry["url"], cfg, batch=False)
-        except Exception as exc:
-            _pr("e", str(exc))
+        ok = c.process_input(entry["url"], cfg, batch=False)
+        succeeded = 1 if ok else 0
+        failed = 0 if ok else 1
         print()
     else:
         # Parallel for batch — 3 concurrent workers
@@ -112,14 +114,16 @@ def _q_process(cfg, queue):
         print_lock = threading.Lock()
 
         def _worker(i, entry):
+            nonlocal succeeded, failed
             url = entry["url"]
             with print_lock:
                 print(f"  {C['h']}[{i + 1}/{total}]{C['r']}  {entry['title'][:50]}")
-            try:
-                c.process_input(url, cfg, batch=True)
-            except Exception as exc:
-                with print_lock:
-                    _pr("e", str(exc))
+            ok = c.process_input(url, cfg, batch=True)
+            with print_lock:
+                if ok:
+                    succeeded += 1
+                else:
+                    failed += 1
             with print_lock:
                 print()
 
@@ -128,10 +132,24 @@ def _q_process(cfg, queue):
             concurrent.futures.wait(futures)
 
     elapsed = time.time() - t0
-    if elapsed >= 60:
-        _pr("ok", f"Queue complete ({int(elapsed // 60)}m {int(elapsed % 60)}s)")
+    elapsed_str = (
+        f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
+        if elapsed >= 60
+        else f"{elapsed:.0f}s"
+    )
+
+    if total == 1:
+        status = "succeeded" if succeeded else "failed"
+        _pr("ok", f"Queue complete: {status} ({elapsed_str})")
+    elif failed == 0:
+        _pr("ok", f"Queue complete: {succeeded} succeeded ({elapsed_str})")
+    elif succeeded == 0:
+        _pr("ok", f"Queue complete: all {failed} failed — check errors above")
     else:
-        _pr("ok", f"Queue complete ({elapsed:.0f}s)")
+        _pr(
+            "ok",
+            f"Queue complete: {succeeded} succeeded, {failed} failed ({elapsed_str})",
+        )
 
 
 def _q_remove(queue):
@@ -176,7 +194,7 @@ def _act_search(cfg, queue):
     for prefix in sources:
         name = next((n for n, p in SOURCES if p == prefix), prefix)
         try:
-            info = dl.search_source(prefix, query)
+            info = dl.search_source(prefix, query, max_results=cfg.max_results)
             for e in info.get("entries", []):
                 if e:
                     e["_source"] = name
@@ -310,6 +328,12 @@ def _act_settings(cfg):
     toggled = _menu(src_items, multi=True, initial=initial_toggle)
     if toggled is not None:
         cfg.sources = toggled
+
+    # ── Search ──
+    _pr("d", f"  ── Search {'─' * (W - 9)}")
+    mr = _ask("Max search results (1-20)", str(cfg.max_results))
+    if mr and mr.isdigit() and 1 <= int(mr) <= 20:
+        cfg.max_results = int(mr)
 
     # ── Metadata ──
     _pr("d", f"  ── Metadata {'─' * (W - 11)}")

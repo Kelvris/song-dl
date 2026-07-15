@@ -56,6 +56,20 @@ def search_source(prefix, query, max_results=5):
         return ydl.extract_info(f"{prefix}{max_results}:{query}", download=False)
 
 
+def _progress_hook(d):
+    """yt-dlp progress hook — prints a single-line progress bar."""
+    if d["status"] == "downloading":
+        pct = d.get("_percent_str", "").strip()
+        speed = d.get("_speed_str", "").strip()
+        eta = d.get("_eta_str", "").strip()
+        line = f"  Downloading... {pct}"
+        if speed:
+            line += f"  {speed}"
+        if eta:
+            line += f"  ETA {eta}"
+        print(line, end="\r", flush=True)
+
+
 def cleanup_temps(output_dir, video_id):
     """Remove any leftover temp/partial files for a given video_id."""
     if not video_id:
@@ -85,11 +99,13 @@ def download_audio(url, output_dir, format="mp3", quality="0"):
                 "preferredquality": quality,
             }
         ],
+        "progress_hooks": [_progress_hook],
     }
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
+        print()  # clear progress line
     except Exception:
         cleanup_temps(output_dir, video_id)
         raise
