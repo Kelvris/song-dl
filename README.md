@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
 [![Platform: Linux / macOS / Windows](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)](.)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/p2CK5guHZx)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/p2CK5GUhZx)
 
 ---
 
@@ -49,6 +49,14 @@ The installer will:
 
 > **Windows users:** WSL works. Native Windows support is in my todo list, right after "touch grass" (currently #974).
 
+### Update to the latest
+
+```bash
+song-dl --update
+```
+
+This replaces only the source files — your venv, pip packages, and config are left alone. Painless.
+
 ---
 
 ## 📖 Usage
@@ -87,44 +95,9 @@ It's like a menu from 1998, but for stealing music. Ethically. Probably.
 | Skip existing | Don't re-download | No |
 | Cover art | Embed album art | Yes |
 | Metadata lookup | Auto-fetch from iTunes/MusicBrainz | Yes |
+| Debug logging | Write debug logs for troubleshooting | No |
 
 All saved to `~/.config/song-dl/config.json`. You can edit it manually if you're brave.
-
----
-
-## 🗂️ Project structure
-
-```
-song-dl/
-├── install.sh          # The magic one-command installer
-├── main.py             # Entry point (just calls the CLI)
-├── requirements.txt    # yt-dlp + mutagen = all you need
-├── songdl/
-│   ├── cli.py          # Argparse wrapper
-│   ├── config.py       # JSON config reader/writer
-│   ├── core.py         # The brain — orchestrates everything
-│   ├── downloader.py   # Talks to yt-dlp so you don't have to
-│   ├── history.py      # SQLite — remembers your bad decisions
-│   ├── interactive.py  # The whole TUI (600 lines of pain)
-│   ├── metadata.py     # iTunes + MusicBrainz + LRCLib
-│   └── tagger.py       # Writes tags to mp3/m4a/flac/opus
-├── LICENSE
-└── README.md           # You are here. Hello.
-```
-
----
-
-## 🧩 Dependencies
-
-| Thing | Why |
-|-------|-----|
-| **Python 3.8+** | The language I wrote this in. Yes, I know. |
-| **yt-dlp** | The real hero. Does all the heavy lifting. |
-| **mutagen** | Tags your files so they look legit in MusicBee |
-| **ffmpeg** | Converts formats. Required by yt-dlp. |
-| **Deno or Node.js** | yt-dlp needs a JS runtime for YouTube extraction now. Deno is lighter. |
-
-The installer handles all of these. Except coffee. That's on you.
 
 ---
 
@@ -152,6 +125,189 @@ Copyright (c) 2026 [MASUMxFROST](https://github.com/MASUMxFROST)
 - [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/) — Apple, for once, did something useful
 - [MusicBrainz](https://musicbrainz.org/) — The Wikipedia of music metadata
 - [LRCLib](https://lrclib.net/) — For the lyrics I never remember
+
+---
+
+---
+
+# 🧠 ADVANCED
+
+This section is for people who want to know how the sausage is made. If you just want to download music, scroll back up. No hard feelings.
+
+---
+
+## 🏗️ Architecture
+
+```
+main.py → cli.py (argparse)
+              │
+              ├── interactive.py (TUI loop)
+              │       │
+              │       ├── tui.py (terminal rendering, input)
+              │       ├── core.py (orchestrates download pipeline)
+              │       │       ├── downloader.py (yt-dlp wrapper)
+              │       │       ├── metadata.py (iTunes → MusicBrainz → LRCLib)
+              │       │       └── tagger.py (mutagen wrapper)
+              │       └── config.py (JSON config I/O)
+              │
+              └── core.py (CLI mode — single URLs, batch files)
+```
+
+Everything flows through `core.py`. It's the traffic cop. `tui.py` handles raw terminal bytes — ANSI codes, cursor positioning, keypress reading — so the rest of the code doesn't have to think about terminals.
+
+---
+
+## 🔄 Metadata resolution order
+
+When a song is downloaded, metadata is fetched in this order, each step falling back to the next:
+
+1. **iTunes Search API** — queried by artist + title. Returns album, year, genre, cover art URL, and a higher-confidence track name.
+2. **MusicBrainz** — queried only if iTunes fails or returns partial data. Slower but more thorough.
+3. **LRCLib** — queried for synced/timed lyrics. Simple REST call, no auth needed.
+4. **yt-dlp info** — the download itself returns basic metadata (title, uploader, duration) as a fallback.
+
+Cover art is downloaded separately and embedded directly into the audio file via mutagen. It is **not** saved as a separate file.
+
+---
+
+## 🧪 Running tests
+
+Tests live in `tests/test_core.py` — no test framework, no dependencies. Self-contained `assert`-based runner:
+
+```bash
+# From the project root, using the venv's Python (needed for yt-dlp imports)
+~/.local/share/song-dl/venv/bin/python3 tests/test_core.py
+
+# Or if yt-dlp is installed system-wide
+python3 tests/test_core.py
+```
+
+Currently **21 tests** covering:
+
+| Module | What's tested |
+|--------|---------------|
+| `core.py` | `_sanitize_path` — invalid chars, slashes, whitespace, empty, all-invalid |
+| `core.py` | `_apply_pattern` — basic, album path, fallback defaults, track numbers |
+| `core.py` | `_is_url` — https, http, no-scheme, non-URLs |
+| `metadata.py` | `clean_youtube_title` — strips "(Official Video)", "(Lyrics)", pipes |
+| `tagger.py` | `_detect_mime` — JPEG, PNG, WebP, fallback |
+
+---
+
+## 🐞 Debug mode
+
+Enable in Settings or set `"debug": true` in `~/.config/song-dl/config.json`:
+
+```json
+{
+  "format": "mp3",
+  "debug": true
+}
+```
+
+A timestamped log is written to `~/.config/song-dl/debug.log`. It captures:
+- yt-dlp invocation params (format, quality, video ID)
+- Download success/failure with raw exception text
+- Temp file paths checked
+- Per-URL result from `process_input()`
+
+This is your first line of defense before opening an issue.
+
+---
+
+## 📁 Config reference
+
+`~/.config/song-dl/config.json` is a plain JSON file. Here's the full schema:
+
+```json
+{
+  "format": "mp3",          // "mp3" | "m4a" | "flac" | "opus"
+  "quality": "0",           // "0" (best) or bitrate like "192k"
+  "output_dir": "",         // absolute path, or "" for current dir
+  "output_pattern": "{artist} - {title}",
+  "skip_existing": false,
+  "no_cover": false,
+  "no_metadata": false,
+  "sources": ["ytsearch", "scsearch"],
+  "max_results": 5,
+  "debug": false
+}
+```
+
+Available pattern variables: `{artist}`, `{album}`, `{title}`, `{track}`, `{ext}`.  
+Example: `"{artist}/{album}/{track}. {title}"` produces `Artist/Album/01. Song Title.mp3`.
+
+---
+
+## 🧩 yt-dlp integration
+
+`downloader.py` configures yt-dlp with four different option profiles depending on the format:
+
+| Format | yt-dlp options |
+|--------|---------------|
+| **mp3** | `bestaudio` → `ffmpeg` extract to mp3 |
+| **m4a** | `m4a` bestaudio directly |
+| **flac** / **opus** | native format with `--audio-format` |
+
+All profiles use:
+- `quiet: True` + `noprogress: True` — progress is rendered by the TUI's custom hook
+- `playretries: 5` — retries on transient failures
+- `extractor_args: {"youtube": {"player_client": ["web_creator", "android_creator"]}}` — bypasses YouTube bot detection
+- `js_runtimes` — auto-detects Deno or Node.js for YouTube's JS challenges
+- A custom `progress_hook` that feeds percentage + speed back to the TUI status line
+
+---
+
+## 📦 How the installer works
+
+`install.sh` is a standalone POSIX-shell script. It does not depend on Python being installed beforehand.
+
+1. **OS detection** — Linux (apt) or macOS (brew)
+2. **Dependency check** — Python 3.8+, pip, venv, ffmpeg, JS runtime
+3. **Venv setup** — creates `~/.local/share/song-dl/venv/`, upgrades pip
+4. **Source copy** — downloads the repo tarball from GitHub `main`, extracts `songdl/`, `main.py`, `requirements.txt`
+5. **Pip install** — `yt-dlp` + `mutagen` inside the venv
+6. **Launcher** — writes `~/.local/bin/song-dl` (a thin shell wrapper that activates the venv)
+
+The `--update` path skips steps 1-3 and 5-6 — only the source files are replaced in-place using atomic renames.
+
+---
+
+## 🌿 Branch structure
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Stable. Tagged releases only. Installer pulls from here. |
+| `dev` | Active development. May be slightly ahead of `main`. |
+
+Feature branches are short-lived and merged into `dev` first.
+
+---
+
+## 🛠️ Building from source
+
+```bash
+git clone https://github.com/Kelvris/song-dl.git
+cd song-dl
+python3 -m venv .venv
+source .venv/bin/activate
+pip install yt-dlp mutagen
+python3 -m songdl
+```
+
+No build step. No `setup.py`. No `pyproject.toml`. It's a flat package. Deal with it.
+
+---
+
+## 🤝 Contributing
+
+1. Fork it
+2. Branch off `dev`
+3. Make your change
+4. Run the tests (see above)
+5. Open a PR to `dev`
+
+Keep it simple. No abstract factories. No over-engineered patterns. This is a tool, not a thesis.
 
 ---
 
