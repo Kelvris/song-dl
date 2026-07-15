@@ -138,54 +138,152 @@ def _getch():
 
 
 def _menu(items, title=None, multi=False, initial=None):
-    """Numbered-list menu.
+    """Arrow-key navigable menu.
 
     items: list of (return_value, display_text) tuples
     title: optional header
-    multi: allow multi-select (space-separated numbers)
+    multi: allow Space-toggle multi-select
+    initial: set of pre-toggled indices (for multi)
 
     Returns selected value (single) or list of values (multi), or None.
     """
-    if title:
-        _title(title)
-    for i, (v, t) in enumerate(items, 1):
-        print(f"  [{i}]  {t}")
-    print()
-    if multi:
-        hint = f"  {C['d']}Space-separated numbers, 'all' or 'q'{C['r']}"
-    else:
-        hint = f"  {C['d']}Number (1-{len(items)}), 'q' to cancel{C['r']}"
-    print(hint)
-    print()
-
-    while True:
+    if not sys.stdin.isatty():
+        # fallback for piped input
+        if title:
+            _title(title)
+        for i, (v, t) in enumerate(items, 1):
+            print(f"  [{i}]  {t}")
+        print()
+        choice = _ask("Choice", "1")
+        if choice is None:
+            return None if not multi else None
+        # Support "all" keyword
+        if choice.lower() == "all":
+            all_vals = [v for v, _ in items]
+            return all_vals if multi else all_vals[0]
         try:
-            raw = _raw_input("  > ")
-        except (EOFError, KeyboardInterrupt):
-            return None if not multi else None
-        if not raw or raw.lower() == "q":
-            return None if not multi else None
-        if multi and raw.lower() == "all":
-            return [v for v, _ in items]
+            idx = int(choice) - 1
+            if 0 <= idx < len(items):
+                return [items[idx][0]] if multi else items[idx][0]
+        except ValueError:
+            pass
         if multi:
             picked = []
-            for p in raw.replace(",", " ").split():
+            for p in choice.replace(",", " ").split():
                 try:
                     i = int(p) - 1
                     if 0 <= i < len(items):
                         picked.append(items[i][0])
                 except ValueError:
                     continue
-            if picked:
-                return picked
+            return picked if picked else None
+        return None if not multi else None
+
+    selected = 0
+    toggled = set(initial) if initial else set()
+    number_buf = ""
+
+    def _height():
+        h = (4 if title else 0) + len(items) + 1
+        if not number_buf:
+            h += 2  # footer: separator + hint
+        return h
+
+    def _draw():
+        if title:
+            print()
+            _pr("h", f"{'─' * (W + 2)}")
+            print(f"  {C['b']}{title}{C['r']}")
+            _pr("h", f"{'─' * (W + 2)}")
+        for i, (v, t) in enumerate(items):
+            pre = " ▸" if i == selected else "   "
+            if multi:
+                mk = f"{C['ok']}✓{C['r']}" if i in toggled else " "
+                print(f" {pre} {mk} {t}")
+            else:
+                print(f" {pre} {C['h']}{t}{C['r']}")
+        if number_buf:
+            print(f"  {C['d']}Go to: {number_buf}{C['r']}")
         else:
-            try:
-                idx = int(raw) - 1
-                if 0 <= idx < len(items):
-                    return items[idx][0]
-            except ValueError:
-                pass
-        print(f"  {C['e']}Invalid choice{C['r']}")
+            print(f"  {C['d']}{'─' * (W + 2)}{C['r']}")
+            hint = (
+                "  ↑↓ Navigate  •  Enter Select  •  Space Toggle  •  Q Quit"
+                if multi
+                else "  ↑↓ Navigate  •  Enter Select  •  Q Quit"
+            )
+            print(f"  {C['d']}{hint}{C['r']}")
+        print()
+
+    _draw()
+    n = _height()
+
+    while True:
+        try:
+            key = _getch()
+            if key is None:
+                continue
+            if key == "CTRL_C":
+                return None if not multi else None
+            if key == "UP":
+                selected = (selected - 1) % len(items)
+                number_buf = ""
+            elif key == "DOWN":
+                selected = (selected + 1) % len(items)
+                number_buf = ""
+            elif key in ("\n", "\r"):
+                if number_buf:
+                    try:
+                        idx = int(number_buf) - 1
+                        if 0 <= idx < len(items):
+                            if multi:
+                                if idx in toggled:
+                                    toggled.remove(idx)
+                                else:
+                                    toggled.add(idx)
+                                selected = idx
+                            else:
+                                return items[idx][0]
+                    except ValueError:
+                        pass
+                    number_buf = ""
+                else:
+                    if multi:
+                        return (
+                            [items[i][0] for i in toggled]
+                            if toggled
+                            else [items[selected][0]]
+                        )
+                    return items[selected][0]
+            elif key == " " and multi:
+                number_buf = ""
+                if selected in toggled:
+                    toggled.remove(selected)
+                else:
+                    toggled.add(selected)
+                selected = (selected + 1) % len(items)
+            elif key == "a" and multi:
+                number_buf = ""
+                if len(toggled) == len(items):
+                    toggled.clear()
+                else:
+                    toggled = set(range(len(items)))
+            elif key == "q" or key == "\x1b":
+                return None if not multi else None
+            elif key == "\x7f":  # Backspace
+                number_buf = number_buf[:-1]
+            elif key in "0123456789":
+                number_buf += key
+                print(f"\033[{n}A\033[J", end="")
+                _draw()
+                continue
+            else:
+                number_buf = ""
+                continue
+
+            print(f"\033[{n}A\033[J", end="")
+            _draw()
+        except KeyboardInterrupt:
+            return None if not multi else None
 
 
 def _wait():
