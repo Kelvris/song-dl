@@ -65,6 +65,10 @@ def _ask(text, default=None):
     prompt = f"  {C['p']}?{C['r']} {text}{suf}: "
     try:
         val = _raw_input(prompt).strip()
+        # Strip ANSI escape sequences (from accidental arrow keys) and reject if only ANSI
+        import re as _re
+
+        val = _re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", val).strip()
         return val if val else (default or "")
     except (EOFError, KeyboardInterrupt):
         return None
