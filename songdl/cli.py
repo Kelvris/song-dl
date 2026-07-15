@@ -32,14 +32,27 @@ def _check_ytdlp_update():
     if error or not latest:
         return
     try:
-        cur_tuple = tuple(int(x) for x in current.split("."))
-        lat_tuple = tuple(int(x) for x in latest.split("."))
+
+        def _ver_tuple(v):
+            parts = []
+            for x in v.split("."):
+                digit = ""
+                for ch in x:
+                    if ch.isdigit():
+                        digit += ch
+                    else:
+                        break
+                parts.append(int(digit) if digit else 0)
+            return tuple(parts)
+
+        cur_tuple = _ver_tuple(current)
+        lat_tuple = _ver_tuple(latest)
     except (ValueError, AttributeError):
         return
     if lat_tuple <= cur_tuple:
         return
     print(f"\n  !! yt-dlp {current} is outdated (latest: {latest})")
-    print(f"  !! Some downloads may fail without the latest version.")
+    print("  !! Some downloads may fail without the latest version.")
     try:
         r = input("  ? Update now? [Y/n] ").strip().lower()
     except (EOFError, KeyboardInterrupt):
@@ -73,7 +86,7 @@ def main():
             print(f"!! Could not check for updates: {error}")
         elif has_update:
             print(f":: A new version is available: v{latest}")
-            print(f":: Run 'song-dl --update' to upgrade.")
+            print(":: Run 'song-dl --update' to upgrade.")
         else:
             print(f":: You're on the latest version (v{latest}).")
         return

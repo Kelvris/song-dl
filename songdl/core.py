@@ -1,50 +1,42 @@
 import os
 import re
-import sys
 import time
 from . import downloader as dl
-from .tui import _debug
+from .tui import C, _debug, _strip_ansi, _raw_input
 from . import metadata as meta
 from . import tagger as tg
 from . import history as hist
 
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RED = "\033[91m"
-BLUE = "\033[94m"
-CYAN = "\033[96m"
-BOLD = "\033[1m"
-RESET = "\033[0m"
-
 
 def _info(msg):
-    print(f"{BLUE}::{RESET} {msg}")
+    print(f"{C['h']}::{C['r']} {msg}")
 
 
 def _ok(msg):
-    print(f"{GREEN}ok{RESET} {msg}")
+    print(f"{C['ok']}ok{C['r']} {msg}")
 
 
 def _warn(msg):
-    print(f"{YELLOW}!!{RESET} {msg}")
+    print(f"{C['w']}!!{C['r']} {msg}")
 
 
 def _err(msg):
-    print(f"{RED}!!{RESET} {msg}")
+    print(f"{C['e']}!!{C['r']} {msg}")
 
 
 def _clean_ansi(text):
     """Strip ANSI escape codes (like \\x1b[b) from exception messages."""
-    import re as _re
-
-    # Strip real ANSI escape codes (ESC byte 0x1b)
-    text = _re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
-    # Strip literal \x1b... text (backslash + x + hex + params + letter)
-    text = _re.sub(r"\\x1b\[[0-9;]*[a-zA-Z]", "", text)
-    return text
+    return _strip_ansi(text)
 
 
-_URL_RE = re.compile(r"^(https?://)?([\w-]+\.)+[\w-]+(:\d+)?(/[\w\-./?%&=@+#]*)?$")
+def strip_radio_params(url):
+    """Remove YouTube radio mix params that make extraction slow."""
+    url = re.sub(r"[?&]list=RD[^&]*", "", url)
+    url = re.sub(r"[?&]start_radio=[^&]*", "", url)
+    return url.rstrip("?&")
+
+
+_URL_RE = re.compile(r"^https?://([\w-]+\.)+[\w-]+(:\d+)?(/[\w\-./?%&=@+#]*)?$")
 
 
 def _is_url(text):
@@ -79,31 +71,9 @@ def _apply_pattern(pattern, artist, album, title, track, ext):
 
 
 def _input(prompt):
-    if not sys.stdin.isatty():
-        try:
-            return input(prompt).strip()
-        except (EOFError, KeyboardInterrupt):
-            return None
-    import platform
-
-    if platform.system() == "Windows":
-        try:
-            return input(prompt).strip()
-        except (EOFError, KeyboardInterrupt):
-            return None
-    import termios
-
-    fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
-    new = termios.tcgetattr(fd)
-    new[3] &= ~termios.ECHOCTL
-    try:
-        termios.tcsetattr(fd, termios.TCSADRAIN, new)
-        return input(prompt).strip()
-    except (EOFError, KeyboardInterrupt):
-        return None
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    """Safe input: delegates to tui._raw_input, returns None on interrupt."""
+    val = _raw_input(prompt, default_on_interrupt=True)
+    return val.strip() if val else val
 
 
 def _format_size(bytes_):
@@ -139,12 +109,10 @@ def process_input(url, args, batch=False):
 def process_item(url, args, batch=False):
     if not _is_url(url):
         _err(f"Not a URL: {url}")
-        return
+        return f"Not a URL: {url}"  # [1.2] return error string, not None
 
     # Strip radio playlist params to avoid slow radio mix extraction
-    url = re.sub(r"[?&]list=RD[^&]*", "", url)
-    url = re.sub(r"[?&]start_radio=[^&]*", "", url)
-    url = url.rstrip("?&")
+    url = strip_radio_params(url)
 
     _info("Fetching video info...")
     info_dict = dl.get_video_info(url)
@@ -159,7 +127,9 @@ def process_item(url, args, batch=False):
         _info(f"Playlist: {len(entries)} items")
         for entry in entries:
             try:
-                process_item(entry["webpage_url"], args, batch=batch)
+                entry_url = entry.get("webpage_url") or entry.get("url") or ""
+                if entry_url:
+                    process_item(entry_url, args, batch=batch)
             except Exception as e:
                 _err(f"  Skipped: {e}")
         return
@@ -195,46 +165,46 @@ def process_item(url, args, batch=False):
         merged, found = meta.lookup_all(clean, yt_uploader, yt_title, info_dict)
 
         if found:
-            print(f"\n  {CYAN}┌─ Metadata {'─' * 27}┐{RESET}")
-            print(f"  │ {BOLD}Title:{RESET}  {merged.get('title', '?'):<44}│")
-            print(f"  │ {BOLD}Artist:{RESET} {merged.get('artist', '?'):<44}│")
-            print(f"  │ {BOLD}Album:{RESET}  {merged.get('album', '?'):<44}│")
-            print(f"  │ {BOLD}Year:{RESET}   {merged.get('year', '?'):<44}│")
-            print(f"  │ {BOLD}Genre:{RESET}  {merged.get('genre', '?'):<44}│")
+            print(f"\n  {C['h']}┌─ Metadata {'─' * 27}┐{C['r']}")
+            print(f"  │ {C['b']}Title:{C['r']}  {merged.get('title', '?'):<44}│")
+            print(f"  │ {C['b']}Artist:{C['r']} {merged.get('artist', '?'):<44}│")
+            print(f"  │ {C['b']}Album:{C['r']}  {merged.get('album', '?'):<44}│")
+            print(f"  │ {C['b']}Year:{C['r']}   {merged.get('year', '?'):<44}│")
+            print(f"  │ {C['b']}Genre:{C['r']}  {merged.get('genre', '?'):<44}│")
             ly = f"{'Found' if merged.get('lyrics') else 'None':<44}"
-            print(f"  │ {BOLD}Lyrics:{RESET} {ly}│")
-            print(f"  {CYAN}└{'─' * 51}┘{RESET}")
+            print(f"  │ {C['b']}Lyrics:{C['r']} {ly}│")
+            print(f"  {C['h']}└{'─' * 51}┘{C['r']}")
             print()
 
             r = "y" if batch else None
             if not batch:
-                r = _input(f"  {CYAN}?{RESET} Use this? {BOLD}Y{RESET}/n/e: ")
+                r = _input(f"  {C['h']}?{C['r']} Use this? {C['b']}Y{C['r']}/n/e: ")
             if r is None:
                 return
             r = r.lower()
             if r in ("e", "edit"):
-                print(f"  {CYAN}── Edit fields (Enter = keep) ──{RESET}")
+                print(f"  {C['h']}── Edit fields (Enter = keep) ──{C['r']}")
                 merged["title"] = (
-                    _input(f"  {BOLD}Title{RESET}  [{merged['title']}]: ")
+                    _input(f"  {C['b']}Title{C['r']}  [{merged['title']}]: ")
                     or merged["title"]
                 )
                 merged["artist"] = (
-                    _input(f"  {BOLD}Artist{RESET} [{merged['artist']}]: ")
+                    _input(f"  {C['b']}Artist{C['r']} [{merged['artist']}]: ")
                     or merged["artist"]
                 )
                 merged["album"] = (
-                    _input(f"  {BOLD}Album{RESET}  [{merged['album']}]: ")
+                    _input(f"  {C['b']}Album{C['r']}  [{merged['album']}]: ")
                     or merged["album"]
                 )
                 merged["year"] = (
-                    _input(f"  {BOLD}Year{RESET}   [{merged['year']}]: ")
+                    _input(f"  {C['b']}Year{C['r']}   [{merged['year']}]: ")
                     or merged["year"]
                 )
                 merged["genre"] = (
-                    _input(f"  {BOLD}Genre{RESET}  [{merged['genre']}]: ")
+                    _input(f"  {C['b']}Genre{C['r']}  [{merged['genre']}]: ")
                     or merged["genre"]
                 )
-                print(f"  {CYAN}── Done ──{RESET}")
+                print(f"  {C['h']}── Done ──{C['r']}")
             elif r in ("n", "no"):
                 merged = _yt_fallback()
 
@@ -249,7 +219,7 @@ def process_item(url, args, batch=False):
     t0 = time.time()
     try:
         temp_file, _ = dl.download_audio(
-            url, args.output_dir, args.format, args.quality
+            url, args.output_dir, args.format, args.quality, info_dict=info_dict
         )
     except Exception as e:
         raw = str(e)
@@ -347,7 +317,17 @@ def check_for_update():
         current = __version__
 
         def _ver_tuple(v):
-            return tuple(int(x) for x in v.split("."))
+            """Parse version string into sortable tuple, ignoring non-numeric suffixes."""
+            parts = []
+            for x in v.split("."):
+                digit = ""
+                for ch in x:
+                    if ch.isdigit():
+                        digit += ch
+                    else:
+                        break
+                parts.append(int(digit) if digit else 0)
+            return tuple(parts)
 
         has_update = _ver_tuple(latest) > _ver_tuple(current)
         return (latest, has_update, None)
@@ -397,7 +377,20 @@ def run_update():
 
         extract_dir = tempfile.mkdtemp()
         with tarfile.open(tmp_path, "r:gz") as tar:
-            tar.extractall(extract_dir)
+            # ponytail: tarfile path traversal — 'data' filter is Python 3.12+
+            # fallback to manual check for older Python
+            try:
+                tar.extractall(extract_dir, filter="data")
+            except TypeError:
+                for member in tar.getmembers():
+                    member_path = os.path.realpath(
+                        os.path.join(extract_dir, member.name)
+                    )
+                    if not member_path.startswith(os.path.realpath(extract_dir)):
+                        raise Exception(
+                            f"Path traversal detected in tar: {member.name}"
+                        )
+                tar.extractall(extract_dir)
         os.unlink(tmp_path)
         tmp_path = None  # cleaned up
 

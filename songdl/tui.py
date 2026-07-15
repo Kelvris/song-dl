@@ -1,11 +1,19 @@
 """TUI primitives — colors, input, menus, cross-platform key reading."""
 
 import os
+import re
 import sys
 import datetime
 
 _DEBUG = False
 _DEBUG_LOG = os.path.expanduser("~/.config/song-dl/debug.log")
+
+
+def _strip_ansi(text):
+    """Strip ANSI escape codes and literal \\x1b[...] sequences."""
+    text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
+    text = re.sub(r"\\x1b\[[0-9;]*[a-zA-Z]", "", text)
+    return text
 
 
 def _set_debug(enabled):
@@ -56,17 +64,28 @@ def _title(text):
     print(f"  {C['h']}{'─' * W}{C['r']}")
 
 
-def _raw_input(prompt):
-    """Safe input: ECHOCTL disabled on Unix, plain input on Windows/non-tty."""
+def _raw_input(prompt, default_on_interrupt=False):
+    """Safe input: ECHOCTL disabled on Unix, plain input on Windows/non-tty.
+
+    If default_on_interrupt is True, returns None on EOFError/KeyboardInterrupt
+    instead of raising.
+    """
     if not sys.stdin.isatty():
-        return input(prompt)
+        try:
+            return input(prompt)
+        except (EOFError, KeyboardInterrupt):
+            if not default_on_interrupt:
+                raise
+            return None
     import platform
 
     if platform.system() == "Windows":
         try:
             return input(prompt)
         except (EOFError, KeyboardInterrupt):
-            raise
+            if not default_on_interrupt:
+                raise
+            return None
     import termios
 
     fd = sys.stdin.fileno()
@@ -77,20 +96,22 @@ def _raw_input(prompt):
         termios.tcsetattr(fd, termios.TCSADRAIN, new)
         return input(prompt)
     except (EOFError, KeyboardInterrupt):
-        raise
+        if not default_on_interrupt:
+            raise
+        return None
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        try:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        except Exception:
+            pass
 
 
 def _ask(text, default=None):
     suf = f" [{default}]" if default else ""
     prompt = f"  {C['p']}?{C['r']} {text}{suf}: "
     try:
-        val = _raw_input(prompt).strip()
-        # Strip ANSI escape sequences (from accidental arrow keys) and reject if only ANSI
-        import re as _re
-
-        val = _re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", val).strip()
+        val = _raw_input(prompt).strip()  # type: ignore[union-attr]
+        val = _strip_ansi(val).strip()
         return val if val else (default or "")
     except (EOFError, KeyboardInterrupt):
         return None
@@ -117,15 +138,15 @@ def _getch():
     import platform
 
     if platform.system() == "Windows":
-        import msvcrt
+        import msvcrt  # type: ignore[attr-defined]
 
-        ch = msvcrt.getch()
+        ch = msvcrt.getch()  # type: ignore[attr-defined]
         if ch == b"\x03":
             return "CTRL_C"
         if ch == b"\x1b":
-            seq = msvcrt.getch()
+            seq = msvcrt.getch()  # type: ignore[attr-defined]
             if seq == b"[":
-                seq2 = msvcrt.getch()
+                seq2 = msvcrt.getch()  # type: ignore[attr-defined]
                 if seq2 == b"A":
                     return "UP"
                 elif seq2 == b"B":

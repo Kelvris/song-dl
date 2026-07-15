@@ -12,10 +12,8 @@ from .tui import (
     _c,
     _pr,
     _title,
-    _raw_input,
     _ask,
     _yn,
-    _getch,
     _menu,
     _wait,
     _pick,
@@ -31,14 +29,9 @@ SOURCES = [
 
 def _feed(url, queue=None):
     # Detect YouTube radio mixes - these are extremely slow to extract
-    import re as _re
-
-    if _re.search(r"[?&]list=RD", url) or _re.search(r"[?&]start_radio=", url):
+    if c.strip_radio_params(url) != url:
         print(f"  {C['y']}:: Radio mix detected, downloading single video{C['r']}")
         print(f"  {C['d']}  (use a regular playlist URL for full tracklist){C['r']}")
-        # Strip playlist params so yt-dlp doesn't re-fetch them later
-        url = _re.sub(r"[?&]list=RD[^&]*", "", url)
-        url = _re.sub(r"[?&]start_radio=[^&]*", "", url)
         return None  # caller will treat as single video
 
     try:
@@ -111,7 +104,8 @@ def _q_process(cfg, queue):
         print()
     else:
         # Parallel for batch — 3 concurrent workers
-        import threading, concurrent.futures
+        import threading
+        import concurrent.futures
 
         print_lock = threading.Lock()
 
@@ -205,7 +199,7 @@ def _act_search(cfg, queue):
                         continue
                     if vid:
                         seen_ids.add(vid)
-                    e["_source"] = name
+                    e["_source"] = name  # type: ignore[typeddict-item]
                     results.append(e)
         except Exception as exc:
             _pr("e", f"{name}: {exc}")
@@ -226,14 +220,11 @@ def _act_search(cfg, queue):
 
 
 def _act_url(queue):
-    import re as _re
-
     url = _ask("Enter URL (video or playlist)")
     if not url:
         return
     # Strip radio playlist params so yt-dlp doesn't hang on them later
-    clean_url = _re.sub(r"[?&]list=RD[^&]*", "", url)
-    clean_url = _re.sub(r"[?&]start_radio=[^&]*", "", clean_url)
+    clean_url = c.strip_radio_params(url)
     entries = _feed(url)
     if entries is not None:
         picked = _pick(entries, title="Playlist tracks")
@@ -257,11 +248,16 @@ def _act_batch(queue):
     path = _ask("Path to batch file")
     if not path:
         return
-    if not os.path.exists(path):
-        _pr("e", f"File not found: {path}")
+    path = os.path.expanduser(path)
+    if not os.path.isfile(path):
+        _pr("e", f"File not found or not a regular file: {path}")
         return
-    with open(path) as f:
-        lines = [l.strip() for l in f if l.strip()]
+    try:
+        with open(path) as f:
+            lines = [line.strip() for line in f if line.strip()]
+    except (OSError, PermissionError) as e:
+        _pr("e", f"Cannot read file: {e}")
+        return
     for line in lines:
         queue.append({"url": line, "title": line[:55], "source": "batch"})
     _pr("ok", f"Added {len(lines)} item(s) to queue.")
@@ -345,21 +341,15 @@ def _act_settings(cfg):
 
     # ── Metadata ──
     _pr("d", f"  ── Metadata {'─' * (W - 11)}")
-    s = _ask("Skip existing? (y/n)", "y" if cfg.skip_existing else "n")
-    if s and s.lower() in ("y", "yes"):
-        cfg.skip_existing = True
-    elif s and s.lower() in ("n", "no"):
-        cfg.skip_existing = False
-    nc = _ask("Skip cover art? (y/n)", "y" if cfg.no_cover else "n")
-    if nc and nc.lower() in ("y", "yes"):
-        cfg.no_cover = True
-    elif nc and nc.lower() in ("n", "no"):
-        cfg.no_cover = False
-    nm = _ask("Skip metadata lookup? (y/n)", "y" if cfg.no_metadata else "n")
-    if nm and nm.lower() in ("y", "yes"):
-        cfg.no_metadata = True
-    elif nm and nm.lower() in ("n", "no"):
-        cfg.no_metadata = False
+    s = _yn("Skip existing?", cfg.skip_existing)
+    if s is not None:
+        cfg.skip_existing = s
+    nc = _yn("Skip cover art?", cfg.no_cover)
+    if nc is not None:
+        cfg.no_cover = nc
+    nm = _yn("Skip metadata lookup?", cfg.no_metadata)
+    if nm is not None:
+        cfg.no_metadata = nm
 
     # ── File Naming ──
     _pr("d", f"  ── File Naming {'─' * (W - 15)}")
@@ -371,15 +361,13 @@ def _act_settings(cfg):
 
     # ── Debug ──
     _pr("d", f"  ── Debug {'─' * (W - 10)}")
-    d = _ask("Debug logging? (y/n)", "y" if cfg.debug else "n")
-    if d and d.lower() in ("y", "yes"):
-        cfg.debug = True
-        _set_debug(True)
-        _debug("Debug logging enabled")
-        _pr("ok", f"Log: ~/.config/song-dl/debug.log")
-    elif d and d.lower() in ("n", "no"):
-        cfg.debug = False
-        _set_debug(False)
+    d = _yn("Debug logging?", cfg.debug)
+    if d is not None:
+        cfg.debug = d
+        _set_debug(d)
+        if d:
+            _debug("Debug logging enabled")
+            _pr("ok", "Log: ~/.config/song-dl/debug.log")
 
     # ── Updates ──────────────────────────────────────
     _title("Updates")
