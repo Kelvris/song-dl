@@ -3,6 +3,7 @@ import re
 import sys
 import time
 from . import downloader as dl
+from .tui import _debug
 from . import metadata as meta
 from . import tagger as tg
 from . import history as hist
@@ -119,13 +120,16 @@ def process_input(url, args, batch=False):
         # process_item returns None on success, or a string error on failure
         if result is not None:
             _err(f"Download failed: {result}")
+            _debug(f"process_input: download failed for {url}: {result}")
             return False
+        _debug(f"process_input: success for {url}")
         return True
     except KeyboardInterrupt:
         _warn("Cancelled by user")
         return False
     except Exception as e:
         _err(f"{url}: {e}")
+        _debug(f"process_input: exception for {url}: {type(e).__name__}: {e}")
         import traceback
 
         traceback.print_exc()
@@ -252,10 +256,12 @@ def process_item(url, args, batch=False):
         msg = (
             _clean_ansi(raw).strip("'\"") or type(e).__name__ or "Unknown yt-dlp error"
         )
+        _debug(f"process_item error: {msg}  raw={raw!r}")
         _warn("Check your connection or try again later.")
         return msg
 
     if not os.path.exists(temp_file):
+        _debug(f"process_item: temp file not found: {temp_file}")
         return "no output file produced"
 
     cover_data = None

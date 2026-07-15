@@ -19,6 +19,8 @@ from .tui import (
     _menu,
     _wait,
     _pick,
+    _set_debug,
+    _debug,
 )
 
 SOURCES = [
@@ -367,6 +369,18 @@ def _act_settings(cfg):
     if op:
         cfg.output_pattern = op
 
+    # ── Debug ──
+    _pr("d", f"  ── Debug {'─' * (W - 10)}")
+    d = _ask("Debug logging? (y/n)", "y" if cfg.debug else "n")
+    if d and d.lower() in ("y", "yes"):
+        cfg.debug = True
+        _set_debug(True)
+        _debug("Debug logging enabled")
+        _pr("ok", f"Log: ~/.config/song-dl/debug.log")
+    elif d and d.lower() in ("n", "no"):
+        cfg.debug = False
+        _set_debug(False)
+
     # ── Updates ──────────────────────────────────────
     _title("Updates")
     r = _yn("Check for updates?", True)
@@ -393,6 +407,7 @@ def _act_settings(cfg):
 
 def run():
     cfg = pconf.load()
+    _set_debug(cfg.debug)
     queue = []
 
     # Save initial terminal state for emergency restoration

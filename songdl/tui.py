@@ -2,6 +2,28 @@
 
 import os
 import sys
+import datetime
+
+_DEBUG = False
+_DEBUG_LOG = os.path.expanduser("~/.config/song-dl/debug.log")
+
+
+def _set_debug(enabled):
+    global _DEBUG
+    _DEBUG = enabled
+
+
+def _debug(msg):
+    """Write a timestamped line to the debug log when debug mode is on."""
+    if not _DEBUG:
+        return
+    d = os.path.dirname(_DEBUG_LOG)
+    try:
+        os.makedirs(d, exist_ok=True)
+        with open(_DEBUG_LOG, "a") as _f:
+            _f.write(f"[{datetime.datetime.now():%H:%M:%S}] {msg}\n")
+    except OSError:
+        pass
 
 
 C = {

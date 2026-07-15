@@ -15,6 +15,7 @@ DEFAULTS = {
     "output_pattern": "{artist} - {title}",
     "sources": ["ytsearch", "scsearch"],
     "max_results": 5,
+    "debug": False,
 }
 
 

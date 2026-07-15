@@ -1,5 +1,7 @@
 import os
+import sys
 import yt_dlp
+from .tui import _debug
 
 _COOKIE_FILE = os.path.expanduser("~/.config/song-dl/cookies.txt")
 
@@ -104,11 +106,14 @@ def download_audio(url, output_dir, format="mp3", quality="0"):
         "progress_hooks": [_progress_hook],
     }
 
+    _debug(f"download_audio: starting url={url} format={format} quality={quality}")
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         print()  # clear progress line
-    except Exception:
+        _debug(f"download_audio: yt-dlp download succeeded for {video_id}")
+    except Exception as e:
+        _debug(f"download_audio: yt-dlp failed for {video_id}: {type(e).__name__}: {e}")
         cleanup_temps(output_dir, video_id)
         raise
 
