@@ -191,12 +191,18 @@ def _act_search(cfg, queue):
 
     _pr("h", f"Searching {len(sources)} source(s)...")
     results = []
+    seen_ids = set()
     for prefix in sources:
         name = next((n for n, p in SOURCES if p == prefix), prefix)
         try:
             info = dl.search_source(prefix, query, max_results=cfg.max_results)
             for e in info.get("entries", []):
                 if e:
+                    vid = e.get("id") or e.get("url", "")
+                    if vid and vid in seen_ids:
+                        continue
+                    if vid:
+                        seen_ids.add(vid)
                     e["_source"] = name
                     results.append(e)
         except Exception as exc:

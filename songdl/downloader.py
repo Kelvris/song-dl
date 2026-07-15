@@ -62,12 +62,14 @@ def _progress_hook(d):
         pct = d.get("_percent_str", "").strip()
         speed = d.get("_speed_str", "").strip()
         eta = d.get("_eta_str", "").strip()
-        line = f"  Downloading... {pct}"
+        parts = ["  Downloading..."]
+        if pct:
+            parts.append(pct)
         if speed:
-            line += f"  {speed}"
+            parts.append(speed)
         if eta:
-            line += f"  ETA {eta}"
-        print(line, end="\r", flush=True)
+            parts.append(f"ETA {eta}")
+        print("  ".join(parts), flush=True)
 
 
 def cleanup_temps(output_dir, video_id):

@@ -115,7 +115,11 @@ def _format_size(bytes_):
 
 def process_input(url, args, batch=False):
     try:
-        process_item(url, args, batch)
+        result = process_item(url, args, batch)
+        # process_item returns None on success, or a string error on failure
+        if result is not None:
+            _err(f"Download failed: {result}")
+            return False
         return True
     except KeyboardInterrupt:
         _warn("Cancelled by user")
@@ -248,15 +252,11 @@ def process_item(url, args, batch=False):
         msg = _clean_ansi(raw) or type(e).__name__
         if not msg:
             msg = "yt-dlp error (possibly network or age-restriction)"
-        _err(f"Download failed: {msg}")
-        if raw and not _clean_ansi(raw):
-            _warn(f"Raw error: {raw!r}")
         _warn("Check your connection or try again later.")
-        return
+        return msg
 
     if not os.path.exists(temp_file):
-        _err("Download failed: no output file produced")
-        return
+        return "no output file produced"
 
     cover_data = None
     if not args.no_cover and metadata.get("cover_url"):
