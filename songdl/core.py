@@ -114,6 +114,9 @@ def process_item(url, args, batch=False):
     # Strip radio playlist params to avoid slow radio mix extraction
     url = strip_radio_params(url)
 
+    # ponytail: download to current working directory, user cd's where they want
+    output_dir = os.getcwd()
+
     _info("Fetching video info...")
     info_dict = dl.get_video_info(url)
 
@@ -219,7 +222,7 @@ def process_item(url, args, batch=False):
     t0 = time.time()
     try:
         temp_file, _ = dl.download_audio(
-            url, args.output_dir, args.format, args.quality, info_dict=info_dict
+            url, output_dir, args.format, args.quality, info_dict=info_dict
         )
     except Exception as e:
         raw = str(e)
@@ -253,7 +256,7 @@ def process_item(url, args, batch=False):
             metadata.get("track", 0),
             actual_ext,
         )
-        final_path = os.path.join(args.output_dir, final_name)
+        final_path = os.path.join(output_dir, final_name)
         final_dir = os.path.dirname(final_path)
         if final_dir:
             os.makedirs(final_dir, exist_ok=True)
@@ -266,7 +269,7 @@ def process_item(url, args, batch=False):
                 counter += 1
             os.rename(temp_file, final_path)
     except Exception:
-        dl.cleanup_temps(args.output_dir, video_id)
+        dl.cleanup_temps(output_dir, video_id)
         if os.path.exists(temp_file):
             try:
                 os.remove(temp_file)

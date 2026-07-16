@@ -314,12 +314,6 @@ def _act_settings(cfg):
     if q:
         cfg.quality = q
 
-    # ── Paths ──
-    _pr("d", f"  ── Paths {'─' * (W - 8)}")
-    o = _ask("Output directory", cfg.output_dir)
-    if o:
-        cfg.output_dir = o
-
     # ── Search Sources ──
     _title("Search Sources (Space to toggle)")
     src_items = []
