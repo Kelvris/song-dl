@@ -8,7 +8,6 @@ CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 DEFAULTS = {
     "format": "mp3",
     "quality": "0",
-    "output_dir": ".",
     "skip_existing": False,
     "no_cover": False,
     "no_metadata": False,
