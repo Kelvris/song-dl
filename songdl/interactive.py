@@ -365,7 +365,7 @@ def _act_settings(cfg):
 
     # ── Updates ──────────────────────────────────────
     _title("Updates")
-    r = _yn("Check for updates?", True)
+    r = _yn("Check song-dl and yt-dlp for updates?", True)
     if r is None:
         return
     if r:
@@ -378,7 +378,23 @@ def _act_settings(cfg):
             if r:
                 c.run_update()
         else:
-            _pr("ok", "You're on the latest version.")
+            _pr("ok", f"song-dl v{__version__} is current.")
+
+        current, latest, error = dl.check_ytdlp_update()
+        if error or not latest:
+            _pr("e", f"Could not check yt-dlp: {error or 'unknown error'}")
+        elif dl.ytdlp_update_available(current, latest):
+            _pr("w", f"yt-dlp {current} is outdated (nightly: {latest}).")
+            r = _yn(f"Update yt-dlp to nightly {latest}?", True)
+            if r:
+                _pr("h", "Updating yt-dlp and YouTube support packages...")
+                updated, update_error = dl.update_ytdlp()
+                if updated:
+                    _pr("ok", "yt-dlp updated. Restart song-dl to use it.")
+                else:
+                    _pr("e", f"yt-dlp update failed: {update_error}")
+        else:
+            _pr("ok", f"yt-dlp {current} is current ({latest}).")
 
     pconf.save(cfg)
     _pr("ok", "Settings saved.")

@@ -1,2 +1,2 @@
-yt-dlp>=2023.0.0
+yt-dlp[default]>=2026.7.4
 mutagen>=1.45.0

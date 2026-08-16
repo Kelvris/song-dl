@@ -26,47 +26,30 @@ def create_parser():
 
 def _check_ytdlp_update():
     """Check if yt-dlp is outdated and prompt user to update."""
-    from .downloader import check_ytdlp_update
+    from .downloader import (
+        check_ytdlp_update,
+        update_ytdlp,
+        ytdlp_update_available,
+    )
 
     current, latest, error = check_ytdlp_update()
     if error or not latest:
         return
-    try:
-
-        def _ver_tuple(v):
-            parts = []
-            for x in v.split("."):
-                digit = ""
-                for ch in x:
-                    if ch.isdigit():
-                        digit += ch
-                    else:
-                        break
-                parts.append(int(digit) if digit else 0)
-            return tuple(parts)
-
-        cur_tuple = _ver_tuple(current)
-        lat_tuple = _ver_tuple(latest)
-    except (ValueError, AttributeError):
+    if not ytdlp_update_available(current, latest):
         return
-    if lat_tuple <= cur_tuple:
-        return
-    print(f"\n  !! yt-dlp {current} is outdated (latest: {latest})")
+    print(f"\n  !! yt-dlp {current} is outdated (nightly: {latest})")
     print("  !! Some downloads may fail without the latest version.")
     try:
         r = input("  ? Update now? [Y/n] ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         return
     if r in ("", "y", "yes"):
-        import subprocess
-        import sys
-
         print("  :: Updating yt-dlp...")
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"],
-            capture_output=True,
-        )
-        print("  ok yt-dlp updated. Restart song-dl to use the new version.")
+        updated, update_error = update_ytdlp()
+        if updated:
+            print("  ok yt-dlp updated. Restart song-dl to use the new version.")
+        else:
+            print(f"  !! yt-dlp update failed: {update_error}")
 
 
 def main():

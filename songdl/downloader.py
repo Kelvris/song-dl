@@ -1,12 +1,14 @@
 import os
+import re
+import shutil
+import subprocess
+import sys
 import threading
 import yt_dlp
 from .tui import _debug
 
 _COOKIE_FILE = os.path.expanduser("~/.config/song-dl/cookies.txt")
 
-# ponytail: yt-dlp 2026.07+ works with default settings on YouTube.
-# No need for extractor_args or js_runtimes — defaults handle everything.
 _BASE_OPTS = {
     "quiet": True,
     "no_warnings": True,
@@ -16,28 +18,66 @@ _BASE_OPTS = {
 
 def _base_opts():
     opts = dict(_BASE_OPTS)
+    # yt-dlp only enables Deno by default. Explicitly enable the first supported
+    # runtime installed by song-dl so Node/Bun/QuickJS work as advertised too.
+    for runtime in ("deno", "node", "bun", "quickjs"):
+        path = shutil.which(runtime)
+        if path:
+            opts["js_runtimes"] = {runtime: {"path": path}}
+            break
     if os.path.isfile(_COOKIE_FILE):
         opts["cookiefile"] = _COOKIE_FILE  # type: ignore[assignment]
     return opts
 
 
+def _version_tuple(version):
+    """Normalize stable, nightly tag, and PyPI dev-release versions."""
+    version = str(version).removesuffix(".dev0")
+    return tuple(int(part) for part in re.findall(r"\d+", version))
+
+
+def ytdlp_update_available(current, latest):
+    return _version_tuple(latest) > _version_tuple(current)
+
+
 def check_ytdlp_update():
-    """Check if yt-dlp is outdated. Returns (current, latest, error)."""
+    """Check the recommended yt-dlp nightly channel for a newer build."""
     import json
     import urllib.request
 
+    current = yt_dlp.version.__version__  # type: ignore[attr-defined]
     try:
         req = urllib.request.Request(
-            "https://pypi.org/pypi/yt-dlp/json",
+            "https://api.github.com/repos/yt-dlp/yt-dlp-nightly-builds/releases/latest",
             headers={"User-Agent": "song-dl/update-check"},
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
-        latest = data["info"]["version"]
-        current = yt_dlp.version.__version__  # type: ignore[attr-defined]
+        latest = data["tag_name"].lstrip("v")
         return current, latest, None
     except Exception as e:
-        return yt_dlp.version.__version__, None, str(e)  # type: ignore[attr-defined]
+        return current, None, str(e)
+
+
+def update_ytdlp():
+    """Upgrade yt-dlp and its recommended dependencies to nightly."""
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "--pre",
+        "yt-dlp[default]",
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, str(e)
+    if result.returncode:
+        message = (result.stderr or result.stdout).strip()
+        return False, message or f"pip exited with status {result.returncode}"
+    return True, None
 
 
 def get_video_info(url):

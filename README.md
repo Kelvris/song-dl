@@ -5,7 +5,7 @@
 ### *Because paying for music is for people with jobs.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Platform: Linux / macOS / Windows](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)](.)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/p2CK5GUhZx)
 
@@ -44,7 +44,7 @@ The installer will:
 1. ✅ Check you have Python, pip, ffmpeg, and a JS runtime (Deno or Node)
 2. ✅ Install missing system stuff (asks first — I'm not a monster)
 3. ✅ Create an isolated venv at `~/.local/share/song-dl/` — your system Python stays untouched, I promise
-4. ✅ Install `yt-dlp` and `mutagen`
+4. ✅ Install the latest `yt-dlp` nightly with its recommended YouTube support packages
 5. ✅ Drop a `song-dl` command in `~/.local/bin/`
 
 > **Windows users:** WSL works. Native Windows support is in my todo list, right after "touch grass" (currently #974).
@@ -251,9 +251,8 @@ Example: `"{artist}/{album}/{track}. {title}"` produces `Artist/Album/01. Song T
 
 All profiles use:
 - `quiet: True` + `noprogress: True` — progress is rendered by the TUI's custom hook
-- `playretries: 5` — retries on transient failures
-- `extractor_args: {"youtube": {"player_client": ["web_creator", "android_creator"]}}` — bypasses YouTube bot detection
-- `js_runtimes` — auto-detects Deno or Node.js for YouTube's JS challenges
+- `yt-dlp[default]` — includes `yt-dlp-ejs` and the recommended Python dependencies
+- `js_runtimes` — auto-detects Deno, Node.js, Bun, or QuickJS for YouTube's JS challenges
 - A custom `progress_hook` that feeds percentage + speed back to the TUI status line
 
 ---
@@ -263,10 +262,10 @@ All profiles use:
 `install.sh` is a standalone POSIX-shell script. It does not depend on Python being installed beforehand.
 
 1. **OS detection** — Linux (apt) or macOS (brew)
-2. **Dependency check** — Python 3.8+, pip, venv, ffmpeg, JS runtime
+2. **Dependency check** — Python 3.10+, pip, venv, ffmpeg, JS runtime
 3. **Venv setup** — creates `~/.local/share/song-dl/venv/`, upgrades pip
 4. **Source copy** — downloads the repo tarball from GitHub `main`, extracts `songdl/`, `main.py`, `requirements.txt`
-5. **Pip install** — `yt-dlp` + `mutagen` inside the venv
+5. **Pip install** — `yt-dlp[default]` + `mutagen` inside the venv
 6. **Launcher** — writes `~/.local/bin/song-dl` (a thin shell wrapper that activates the venv)
 
 The `--update` path skips steps 1-3 and 5-6 — only the source files are replaced in-place using atomic renames.
@@ -291,7 +290,7 @@ git clone https://github.com/Kelvris/song-dl.git
 cd song-dl
 python3 -m venv .venv
 source .venv/bin/activate
-pip install yt-dlp mutagen
+pip install --pre "yt-dlp[default]" mutagen
 python3 -m songdl
 ```
 

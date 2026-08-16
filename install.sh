@@ -97,7 +97,7 @@ SONGDL_VERSION="${SONGDL_VERSION:-0.3.5}"
 
 # Minimum Python version required
 PYTHON_REQUIRED_MAJOR=3
-PYTHON_REQUIRED_MINOR=8
+PYTHON_REQUIRED_MINOR=10
 
 # State tracking for cleanup
 _INSTALL_STARTED=false
@@ -269,7 +269,7 @@ detect_os() {
                     PKG_INSTALL_CMD="xbps-install -y"
                 else
                     die "Unsupported Linux distribution. Please install dependencies manually:\n" \
-                        "  - Python 3.8+, python3-pip, python3-venv, ffmpeg"
+                        "  - Python 3.10+, python3-pip, python3-venv, ffmpeg"
                 fi
             fi
             ;;
@@ -394,7 +394,7 @@ _pkg_name_for() {
 # =============================================================================
 check_deps() {
     local -a dep_names=(
-        "python3:Python 3.8+"
+        "python3:Python 3.10+"
         "pip:pip (python3-pip)"
         "venv:python3-venv"
         "ffmpeg:ffmpeg"
@@ -430,7 +430,7 @@ check_deps() {
                             PYTHON_CMD="python3"
                         else
                             dep_status+=("missing")
-                            dep_version+=("$py_ver (need 3.8+)")
+                            dep_version+=("$py_ver (need 3.10+)")
                         fi
                     else
                         dep_status+=("missing")
@@ -578,7 +578,7 @@ confirm_installation() {
     if $NEED_FFMPEG; then
         plan_items+=("ffmpeg                            (system package via ${PKG_MANAGER})")
     fi
-    plan_items+=("yt-dlp + mutagen                 (Python packages, inside venv)")
+    plan_items+=("yt-dlp[default] nightly + mutagen (Python packages, inside venv)")
     plan_items+=("~/.local/bin/song-dl             (command launcher)")
 
     for item in "${plan_items[@]}"; do
@@ -734,7 +734,7 @@ install_python_deps() {
     fi
 
     # Install requirements with spinner
-    subheader "Installing Python packages (yt-dlp, mutagen)"
+    subheader "Installing Python packages (yt-dlp nightly, mutagen)"
 
     if [[ ! -f "$PROJECT_DIR/requirements.txt" ]]; then
         die "requirements.txt not found at $PROJECT_DIR/requirements.txt"
@@ -746,8 +746,8 @@ install_python_deps() {
         warn "pip install may fail if packages are not cached."
     fi
 
-    printf "  %s  Installing yt-dlp and mutagen ..." "$_DIM"
-    if "$VENV_DIR/bin/pip" install --quiet -r "$PROJECT_DIR/requirements.txt" \
+    printf "  %s  Installing yt-dlp nightly and mutagen ..." "$_DIM"
+    if "$VENV_DIR/bin/pip" install --quiet --pre -r "$PROJECT_DIR/requirements.txt" \
         &>/tmp/songdl_pip_install.log; then
         printf "\r"
         ok "Python packages installed."
@@ -977,10 +977,10 @@ main() {
     section "Checking Dependencies"
     check_deps
 
-    # ----- Handle Python < 3.8 -----------------------------------------------
+    # ----- Handle Python < 3.10 ----------------------------------------------
     if [[ -z "$PYTHON_CMD" ]]; then
         printf "\n"
-        error "Python 3.8+ is required but not found."
+        error "Python 3.10+ is required but not found."
         case "$PKG_MANAGER" in
             apt)   info "Install it: sudo apt install python3" ;;
             dnf)   info "Install it: sudo dnf install python3" ;;
@@ -991,7 +991,7 @@ main() {
             winget) info "Install it: winget install Python.Python.3" ;;
             choco) info "Install it: choco install python" ;;
         esac
-        die "Python 3.8+ is required."
+        die "Python 3.10+ is required."
     fi
 
     # Verify version again for the detailed error
